@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="utf-8"?>
+<resources>
+    <style name="Theme.OBDvis" parent="Theme.AppCompat.NoActionBar">
+        <item name="android:windowBackground">#0f1117</item>
+        <item name="android:statusBarColor">#1a1d27</item>
+        <item name="android:navigationBarColor">#1a1d27</item>
+    </style>
+</resources>

@@ -1,0 +1,27 @@
+# Android build outputs
+android/.gradle/
+android/app/build/
+android/build/
+android/.kotlin/
+
+# Local configuration (contains SDK path, not for version control)
+android/local.properties
+
+# Claude Code tooling
+.claude/
+
+# IDE/editor
+.vscode/
+.idea/
+android/.idea/
+*.iml
+
+# Local SDK path (machine-specific)
+android/gradle/wrapper/local.properties
+
+# OS
+.DS_Store
+Thumbs.db
+
+# CSV data files captured from the app
+*.csv

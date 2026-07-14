@@ -1,0 +1,11 @@
+# Copy this file to local.properties if Gradle cannot find your Android SDK.
+# Do not commit local.properties; it contains a machine-specific SDK path.
+#
+# Windows:
+# sdk.dir=C:/Users/YOUR_NAME/AppData/Local/Android/Sdk
+#
+# macOS:
+# sdk.dir=/Users/YOUR_NAME/Library/Android/sdk
+#
+# Linux:
+# sdk.dir=/home/YOUR_NAME/Android/Sdk

@@ -1,0 +1,75 @@
+name: Bug report
+description: Report a reproducible problem in OBDvis.
+title: "[Bug]: "
+labels:
+  - bug
+body:
+  - type: markdown
+    attributes:
+      value: |
+        Thanks for reporting a bug. Please do not include VINs, license plates, precise locations, or private drive logs.
+  - type: textarea
+    id: summary
+    attributes:
+      label: Summary
+      description: What happened, and what did you expect instead?
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: Steps to reproduce
+      description: Include enough detail for someone else to reproduce the issue.
+      placeholder: |
+        1. Open ...
+        2. Connect to ...
+        3. Tap ...
+        4. See ...
+    validations:
+      required: true
+  - type: input
+    id: android-version
+    attributes:
+      label: Android version
+      placeholder: "Example: Android 15"
+    validations:
+      required: true
+  - type: input
+    id: device
+    attributes:
+      label: Phone or emulator
+      placeholder: "Example: Pixel 8"
+    validations:
+      required: false
+  - type: input
+    id: adapter
+    attributes:
+      label: OBD-II adapter
+      placeholder: "Example: Vgate iCar Pro BLE / generic ELM327 Bluetooth"
+    validations:
+      required: false
+  - type: input
+    id: vehicle
+    attributes:
+      label: Vehicle context
+      description: Optional. Year/make/model is enough; do not include VIN or plate.
+      placeholder: "Example: 2014 Toyota Corolla"
+    validations:
+      required: false
+  - type: dropdown
+    id: demo-mode
+    attributes:
+      label: Does it reproduce in demo mode?
+      options:
+        - "Yes"
+        - "No"
+        - "Not tested"
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: Logs, screenshots, or sensor context
+      description: Add non-sensitive details that help diagnose the issue.
+    validations:
+      required: false
