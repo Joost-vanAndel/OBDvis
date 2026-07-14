@@ -1,8 +1,12 @@
 # OBDvis
 
-OBDvis is an Android app for visualising live OBD-II data from an ELM327 Bluetooth adapter.
-It provides real-time gauges, charting, diagnostic health checks, DTC reading/clearing, a
-post-drive summary, demo mode, and a read-only Android Auto companion surface.
+OBDvis is an Android app for monitoring, visualising, and interpreting live OBD-II data from
+an ELM327 Bluetooth adapter. It combines real-time gauges and charts with a strong focus on
+diagnostics, turning sensor values into explainable health findings using explicit rules,
+rolling time windows, and driving context.
+
+It also includes DTC reading and clearing, fuel-trim analysis, post-drive summaries, demo
+mode, CSV export, and a read-only Android Auto companion surface.
 
 The app is intentionally small in architecture: one Android app module, one activity, Jetpack
 Compose UI, Kotlin coroutines/StateFlow, and no third-party architecture framework.
@@ -15,15 +19,33 @@ Compose UI, Kotlin coroutines/StateFlow, and no third-party architecture framewo
 
 ## Features
 
-- Bluetooth ELM327 connection flow with a built-in demo mode.
-- Live OBD-II sensor chart with selectable PIDs and CSV export.
-- Overview gauges for RPM, speed, coolant, voltage, vehicle state, and G-force.
-- Deterministic vehicle health checks using explicit rules and rolling sensor windows.
-- Fuel trim deep dive with short-term and long-term trim trends.
+- Explainable, rule-based health checks with severity, confidence, supporting evidence,
+  and clear data-limitations reporting.
+- Rolling diagnostics for fuel trims, O2 sensors, temperatures, idle stability, charging,
+  fuel-system state, emissions monitors, and other supported signals.
+- Driving-context analysis that distinguishes conditions such as cold start, warm idle,
+  cruise, acceleration, and deceleration.
+- Fuel Trim Deep Dive with 60-second trends, per-bank values, and focused findings.
 - Stored and pending DTC reading, generic system guidance, user-initiated web search,
   and clear-code confirmation.
-- Post-drive summary with peak values and diagnostic finding history.
-- Android Auto read-only templates for key sensors and health findings.
+- Persistent finding history and a post-drive summary with occurrences, operating-state
+  breakdown, and peak values.
+- Overview gauges for RPM, speed, coolant, voltage, vehicle state, and G-force.
+- Live OBD-II gauges and charts with selectable PIDs, normalization, and CSV export.
+- Bluetooth ELM327 connection flow, a built-in demo mode, and read-only Android Auto views
+  for key sensors and health findings.
+
+## Diagnostics
+
+OBDvis keeps diagnostic logic deterministic and inspectable. Fresh sensor readings are held
+in a local rolling buffer, then evaluated against explicit thresholds and real elapsed-time
+windows. Rules can combine signals and operating conditions to identify patterns that a
+single gauge or fault code may not reveal.
+
+Each finding explains what was observed and how confident the app is. Noisy conditions must
+persist before they are surfaced, stale readings are excluded, and missing data is reported
+as a limitation rather than silently treated as healthy. Everything runs locally on the
+device; findings are diagnostic hints, not automated repair instructions.
 
 ## Privacy
 
