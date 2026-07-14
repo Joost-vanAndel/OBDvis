@@ -30,8 +30,11 @@ val requiredPermissions: Array<String> =
             Manifest.permission.BLUETOOTH_CONNECT,
         )
     } else {
-        // API 23-30: only location is dangerous (needed for BT device discovery)
-        arrayOf(Manifest.permission.ACCESS_FINE_LOCATION)
+        // API 23-30: location is dangerous (needed for BT device discovery)
+        arrayOf(
+            Manifest.permission.ACCESS_COARSE_LOCATION,
+            Manifest.permission.ACCESS_FINE_LOCATION,
+        )
     }
 
 @Composable

@@ -265,7 +265,8 @@ class MainViewModel(
         val updatedRecords = findingStateManager.merge(summary.findings, summary.eligibleFindingIds, now)
         _activeFindings.value = updatedRecords
         _findingEventLog.value = findingStateManager.eventLog()
-        operatingStateCounts.merge(summary.operatingState, 1, Int::plus)
+        operatingStateCounts[summary.operatingState] =
+            (operatingStateCounts[summary.operatingState] ?: 0) + 1
         vehicleStateHistory.add(0, summary.vehicleState)
         if (vehicleStateHistory.size > MAX_VEHICLE_STATE_HISTORY) {
             vehicleStateHistory.removeAt(vehicleStateHistory.lastIndex)

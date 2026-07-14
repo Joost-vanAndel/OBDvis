@@ -5,6 +5,7 @@ import android.app.NotificationManager
 import android.app.PendingIntent
 import android.content.Context
 import android.content.Intent
+import android.os.Build
 import androidx.core.app.NotificationCompat
 import com.obdvis.android.domain.health.DiagnosticFinding
 import com.obdvis.android.domain.health.DiagnosticSummary
@@ -21,22 +22,24 @@ class NotificationHelper(context: Context) {
     }
 
     init {
-        val alertChannel = NotificationChannel(
-            CHANNEL_ID,
-            "Vehicle Health Alerts",
-            NotificationManager.IMPORTANCE_DEFAULT,
-        ).apply { description = "Background vehicle health check alerts" }
-        manager.createNotificationChannel(alertChannel)
+        if (Build.VERSION.SDK_INT >= Build.VERSION_CODES.O) {
+            val alertChannel = NotificationChannel(
+                CHANNEL_ID,
+                "Vehicle Health Alerts",
+                NotificationManager.IMPORTANCE_DEFAULT,
+            ).apply { description = "Background vehicle health check alerts" }
+            manager.createNotificationChannel(alertChannel)
 
-        val standingChannel = NotificationChannel(
-            CHANNEL_ID_STANDING,
-            "Connection Status",
-            NotificationManager.IMPORTANCE_LOW,
-        ).apply {
-            description = "Shown while OBDvis is connected and running in the background"
-            setShowBadge(false)
+            val standingChannel = NotificationChannel(
+                CHANNEL_ID_STANDING,
+                "Connection Status",
+                NotificationManager.IMPORTANCE_LOW,
+            ).apply {
+                description = "Shown while OBDvis is connected and running in the background"
+                setShowBadge(false)
+            }
+            manager.createNotificationChannel(standingChannel)
         }
-        manager.createNotificationChannel(standingChannel)
     }
 
     fun showStandingNotification(deviceName: String, summary: DiagnosticSummary? = null) {
