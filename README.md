@@ -13,9 +13,9 @@ Compose UI, Kotlin coroutines/StateFlow, and no third-party architecture framewo
 
 ## Screenshots
 
-| Overview | Live chart | Health | DTCs |
-|---|---|---|---|
-| <img src="screenshots/overview.jpg" alt="Overview screen with live gauges, G-force, health, and DTC status" width="220"> | <img src="screenshots/live-chart.jpg" alt="Live chart screen with normalized OBD-II sensor traces" width="220"> | <img src="screenshots/health.jpg" alt="Health screen with diagnostic findings and readiness monitors" width="220"> | <img src="screenshots/dtcs.jpg" alt="DTC screen with stored fault codes and clear-code controls" width="220"> |
+| Overview | Live chart | Health | DTCs | Post-drive |
+|---|---|---|---|---|
+| <img src="screenshots/overview.jpg" alt="Overview screen with live gauges, G-force, health, and DTC status" width="180"> | <img src="screenshots/live-chart.jpg" alt="Live chart screen with normalized OBD-II sensor traces" width="180"> | <img src="screenshots/health.jpg" alt="Health screen with diagnostic findings and readiness monitors" width="180"> | <img src="screenshots/dtcs.jpg" alt="DTC screen with stored fault codes and clear-code controls" width="180"> | <img src="screenshots/post-drive.jpg" alt="Post-drive summary with health findings, operating states, and peak values" width="180"> |
 
 ## Features
 
