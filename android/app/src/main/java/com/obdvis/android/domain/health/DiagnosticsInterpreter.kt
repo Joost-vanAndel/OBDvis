@@ -2,6 +2,7 @@ package com.obdvis.android.domain.health
 
 import com.obdvis.android.domain.model.SensorSample
 import com.obdvis.android.domain.store.SampleStore
+import java.util.Locale
 import kotlin.math.abs
 
 /**
@@ -1186,7 +1187,7 @@ object DiagnosticsInterpreter {
                 severity    = FindingSeverity.LOW,
                 confidence  = FindingConfidence.MEDIUM,
                 evidence    = mapOf(
-                    "Avg fuel rate" to "${String.format("%.1f", avg)} L/h",
+                    "Avg fuel rate" to "${String.format(Locale.ROOT, "%.1f", avg)} L/h",
                     "Samples"       to "${rateStats.count} over ${windowSec}s",
                 ),
             )
@@ -1197,7 +1198,7 @@ object DiagnosticsInterpreter {
                 severity    = FindingSeverity.LOW,
                 confidence  = FindingConfidence.LOW,
                 evidence    = mapOf(
-                    "Avg fuel rate" to "${String.format("%.1f", avg)} L/h",
+                    "Avg fuel rate" to "${String.format(Locale.ROOT, "%.1f", avg)} L/h",
                     "Samples"       to "${rateStats.count} over ${windowSec}s",
                 ),
             )

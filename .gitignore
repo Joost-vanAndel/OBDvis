@@ -19,6 +19,17 @@ android/.idea/
 # Local SDK path (machine-specific)
 android/gradle/wrapper/local.properties
 
+# Signing keys and credential-bearing configuration
+*.jks
+*.keystore
+*.p12
+*.pfx
+.env*
+key.properties
+keystore.properties
+signing.properties
+signing-config.properties
+
 # OS
 .DS_Store
 Thumbs.db
