@@ -60,6 +60,12 @@ the full privacy note.
 - Android device or emulator with API 23+.
 - For real vehicle data: an ELM327-compatible Bluetooth OBD-II adapter.
 
+## Tested Configurations
+
+OBDvis has been exercised on a growing set of real vehicles, Android devices, and OBD
+adapters. See [Tested Configurations](TESTED_CONFIGURATIONS.md) for the current list and
+instructions for contributing a result.
+
 ## Android SDK Setup
 
 Gradle needs to know where your Android SDK is. Android Studio usually creates

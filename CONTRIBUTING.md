@@ -10,6 +10,8 @@ coroutines/StateFlow, and no third-party architecture framework.
   Android Auto behavior, permissions, and diagnostics.
 - Improve documentation for setup, supported adapters, known vehicle behavior,
   or safe use.
+- Add a real-world vehicle, Android device, and adapter result to
+  `TESTED_CONFIGURATIONS.md`.
 - Add focused tests for parsing, polling, sample storage, diagnostics, and
   post-drive aggregation.
 - Propose new diagnostics rules when the thresholds and evidence can be stated
