@@ -160,6 +160,35 @@ class DiagnosticsInterpreterTest {
     }
 
     @Test
+    fun `interpret steady low throttle speed produces CRUISE operating state`() {
+        val store = speedStore(80f, 80f, 80f, 80f, 80f)
+        val summary = DiagnosticsInterpreter.interpret(
+            state(rpm = 2000f, speedKph = 80f, throttlePct = 3f, coolantTempC = 90f),
+            store,
+        )
+        assertEquals(OperatingState.CRUISE, summary.operatingState)
+    }
+
+    @Test
+    fun `interpret sustained speed drop with low throttle produces DECELERATION operating state`() {
+        val store = speedStore(80f, 77f, 74f, 71f, 68f)
+        val summary = DiagnosticsInterpreter.interpret(
+            state(rpm = 1800f, speedKph = 68f, throttlePct = 2f, coolantTempC = 90f),
+            store,
+        )
+        assertEquals(OperatingState.DECELERATION, summary.operatingState)
+    }
+
+    @Test
+    fun `interpret moving vehicle with missing throttle produces UNKNOWN operating state`() {
+        val summary = DiagnosticsInterpreter.interpret(
+            state(rpm = 2000f, speedKph = 80f, throttlePct = null, coolantTempC = 90f),
+            speedStore(80f, 77f, 74f, 71f, 68f),
+        )
+        assertEquals(OperatingState.UNKNOWN, summary.operatingState)
+    }
+
+    @Test
     fun `interpret engine off (low rpm) produces UNKNOWN operating state`() {
         // RPM = 50 → engineOn = false → UNKNOWN
         val summary = DiagnosticsInterpreter.interpret(
@@ -167,6 +196,22 @@ class DiagnosticsInterpreterTest {
             emptyStore,
         )
         assertEquals(OperatingState.UNKNOWN, summary.operatingState)
+    }
+
+    private fun speedStore(vararg speeds: Float): SampleStore {
+        val store = SampleStore()
+        val now = System.currentTimeMillis()
+        speeds.forEachIndexed { index, speed ->
+            store.add(
+                SensorSample(
+                    pidId = "speed",
+                    elapsedSeconds = index.toFloat(),
+                    value = speed,
+                    timestampMs = now - (speeds.lastIndex - index) * 1_000L,
+                )
+            )
+        }
+        return store
     }
 
     // ── DTC findings ──────────────────────────────────────────────────────────
