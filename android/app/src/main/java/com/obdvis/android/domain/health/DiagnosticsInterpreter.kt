@@ -40,6 +40,11 @@ object DiagnosticsInterpreter {
     private const val CRUISE_THROTTLE_MAX   = 50f
     private const val DECEL_THROTTLE_MAX    = 5f
     private const val DECEL_SPEED_MIN       = 10f
+    private const val DECEL_TREND_WINDOW_MS       = 5_000L
+    private const val DECEL_TREND_MIN_SAMPLES     = 3
+    private const val DECEL_TREND_MIN_COVERAGE_MS = 2_000L
+    private const val DECEL_RATE_MAX_KPH_PER_SEC  = -0.5f
+    private const val DECEL_MIN_SPEED_DROP_KPH    = 2f
     private const val FUEL_TRIM_WARN_PCT          = 10f  // |avg combined| above → warning
     private const val FUEL_TRIM_LIKELY_FAULT_PCT  = 15f  // |avg combined| above → likely fault
     private const val FUEL_TRIM_STRONG_FAULT_PCT  = 20f  // |avg combined| above → strong fault
@@ -136,10 +141,15 @@ object DiagnosticsInterpreter {
         store: SampleStore,
         recentStates: List<VehicleState> = emptyList(),
     ): DiagnosticSummary {
+        val currentOperatingState = detectOperatingState(
+            state = state,
+            speedIsDecreasing = hasSustainedSpeedDrop(store),
+        )
         val opStateCache: Map<VehicleState, OperatingState> =
-            (recentStates + state).associateWith { detectOperatingState(it) }
+            recentStates.associateWith { detectOperatingState(it, speedIsDecreasing = false) }
         val opStateOf: (VehicleState) -> OperatingState = { s ->
-            opStateCache.getOrElse(s) { detectOperatingState(s) }
+            if (s === state) currentOperatingState
+            else opStateCache.getOrElse(s) { detectOperatingState(s, speedIsDecreasing = false) }
         }
 
         if (!hasMinimumData(state)) {
@@ -153,7 +163,7 @@ object DiagnosticsInterpreter {
             )
         }
 
-        val operatingState = opStateOf(state)
+        val operatingState = currentOperatingState
         val results = buildList {
             add(temperatureFinding(state))
             add(stuckThermostatFinding(state, recentStates, opStateOf))
@@ -187,17 +197,21 @@ object DiagnosticsInterpreter {
 
     // ── Operating state detection ──────────────────────────────────────────
 
-    private fun detectOperatingState(state: VehicleState): OperatingState {
+    private fun detectOperatingState(
+        state: VehicleState,
+        speedIsDecreasing: Boolean,
+    ): OperatingState {
         if (!state.engineOn) {
             return if ((state.speedKph ?: 0f) >= EV_DRIVE_SPEED_MIN_KPH) OperatingState.EV_DRIVE
                    else OperatingState.UNKNOWN
         }
-        val rpm      = state.rpm ?: return OperatingState.UNKNOWN
-        val speed    = state.speedKph ?: 0f
-        val throttle = state.throttlePct ?: 0f
+        val rpm = state.rpm ?: return OperatingState.UNKNOWN
 
         val coolant = state.coolantTempC
         if (coolant != null && coolant < COLD_COOLANT_C) return OperatingState.COLD_START
+
+        val speed = state.speedKph ?: return OperatingState.UNKNOWN
+        val throttle = state.throttlePct ?: return OperatingState.UNKNOWN
 
         if (speed <= IDLE_SPEED_KPH_MAX && rpm <= IDLE_RPM_MAX && throttle <= IDLE_THROTTLE_MAX) {
             return if (coolant != null && coolant < WARM_COOLANT_C) OperatingState.COLD_START
@@ -206,11 +220,45 @@ object DiagnosticsInterpreter {
 
         if (throttle >= ACCEL_THROTTLE_MIN) return OperatingState.ACCELERATION
 
-        if (throttle <= DECEL_THROTTLE_MAX && speed >= DECEL_SPEED_MIN) return OperatingState.DECELERATION
+        if (speedIsDecreasing && throttle <= DECEL_THROTTLE_MAX && speed >= DECEL_SPEED_MIN) {
+            return OperatingState.DECELERATION
+        }
 
         if (speed >= CRUISE_SPEED_MIN && throttle <= CRUISE_THROTTLE_MAX) return OperatingState.CRUISE
 
         return OperatingState.UNKNOWN
+    }
+
+    /**
+     * Uses a least-squares speed slope so one quantized or noisy PID 0x0D reading does not
+     * turn low-throttle cruising into deceleration. Both a minimum rate and a minimum total
+     * drop are required over a sufficiently covered window.
+     */
+    private fun hasSustainedSpeedDrop(store: SampleStore): Boolean {
+        val samples = store.window("speed", DECEL_TREND_WINDOW_MS)
+            .sortedBy { it.timestampMs }
+        if (samples.size < DECEL_TREND_MIN_SAMPLES) return false
+
+        val firstTimestamp = samples.first().timestampMs
+        val coverageMs = samples.last().timestampMs - firstTimestamp
+        if (coverageMs < DECEL_TREND_MIN_COVERAGE_MS) return false
+
+        val timesSec = samples.map { (it.timestampMs - firstTimestamp) / 1_000f }
+        val meanTime = timesSec.average().toFloat()
+        val meanSpeed = samples.map { it.value }.average().toFloat()
+        var covariance = 0f
+        var timeVariance = 0f
+        samples.indices.forEach { index ->
+            val timeDelta = timesSec[index] - meanTime
+            covariance += timeDelta * (samples[index].value - meanSpeed)
+            timeVariance += timeDelta * timeDelta
+        }
+        if (timeVariance == 0f) return false
+
+        val rateKphPerSec = covariance / timeVariance
+        val estimatedDropKph = -rateKphPerSec * (coverageMs / 1_000f)
+        return rateKphPerSec <= DECEL_RATE_MAX_KPH_PER_SEC &&
+            estimatedDropKph >= DECEL_MIN_SPEED_DROP_KPH
     }
 
     // ── Individual rules ───────────────────────────────────────────────────
