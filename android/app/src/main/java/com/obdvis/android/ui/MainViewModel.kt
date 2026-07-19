@@ -60,6 +60,8 @@ private const val ENGINE_OFF_DELAY_MS = 5_000L
 private const val VEHICLE_STOPPED_KPH = 5f
 private const val MIN_SNAPSHOTS_FOR_SUMMARY = 3
 private const val MAX_VEHICLE_STATE_HISTORY = 300
+private const val CONTINUOUS_HEALTH_CHECK_INTERVAL_MS = 1_000L
+private const val PERIODIC_FOREGROUND_HEALTH_CHECK_INTERVAL_MS = 30_000L
 private val FUEL_TRIM_PIDS = listOf("stft", "ltft", "stft2", "ltft2")
     .mapNotNull { PidRegistry.byId[it] }
 
@@ -197,17 +199,18 @@ class MainViewModel(
 
                 val session = activeSession
                 when {
-                    inForeground && onHealthTab && _healthAutoUpdateEnabled.value -> {
+                    inForeground && (onOverview ||
+                        (onHealthTab && _healthAutoUpdateEnabled.value)) -> {
                         if (session != null) {
                             lastDtcMs = performHealthCheck(session, lastDtcMs)
-                            delay(1_000L)
+                            delay(CONTINUOUS_HEALTH_CHECK_INTERVAL_MS)
                         } else {
                             delay(500L)
                         }
                     }
-                    inForeground && (onOverview || onDtcTab) -> {
+                    inForeground && onDtcTab -> {
                         if (session != null) lastDtcMs = performHealthCheck(session, lastDtcMs)
-                        delay(30_000L)
+                        delay(PERIODIC_FOREGROUND_HEALTH_CHECK_INTERVAL_MS)
                     }
                     !inForeground -> {
                         delay(_bgCheckIntervalMs.value)
@@ -228,7 +231,7 @@ class MainViewModel(
                             }
                         }
                     }
-                    else -> delay(30_000L)
+                    else -> delay(PERIODIC_FOREGROUND_HEALTH_CHECK_INTERVAL_MS)
                 }
             }
         }
