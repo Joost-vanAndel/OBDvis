@@ -95,11 +95,14 @@ State is shared via `SharedAutoState` (owned by `OBDVisApp`). `MainViewModel` pu
 All supported sensors live in `PidRegistry.kt`. Each `PidDefinition` has:
 `id`, `hex`, `name`, `unit`, `min`, `max`, `color`, `formula: (ByteArray) -> Float`, `displayInLive: Boolean`
 
-`displayInLive = false` hides a PID from the Live tab chart/sidebar (e.g. `monitor_readiness`, `o2_present`).
+`displayInLive = false` hides a PID from the Live tab chart/sidebar (currently `monitor_readiness`).
 
-48 PIDs total:
+62 PIDs total:
 `fuel_sys_status`, `rpm`, `speed`, `coolant`, `load`, `throttle`, `intake_temp`, `maf`, `manifold`,
 `fuel`, `stft`, `ltft`, `stft2`, `ltft2`, `fuel_pressure`, `timing`, `o2_b1s1`, `o2_b1s2`,
+`o2_b2s1`, `o2_b2s2`, `afr_b1s1`, `afr_b1s2`, `afr_b2s1`, `afr_b2s2`,
+`afr_i_b1s1`, `afr_i_b1s2`, `afr_i_b2s1`, `afr_i_b2s2`,
+`afr_ma_b1s1`, `afr_ma_b1s2`, `afr_ma_b2s1`, `afr_ma_b2s2`,
 `run_time`, `dist_cleared`, `baro`, `abs_load`, `rel_throttle`, `ambient_temp`, `mil_time`,
 `oil_temp`, `fuel_rate`, `engine_torque`, `ecu_voltage`, `obd_voltage`,
 `catalyst_temp_b1s1`, `catalyst_temp_b1s2`, `ref_torque`, `dist_mil`, `time_cleared`,
@@ -107,8 +110,10 @@ All supported sensors live in `PidRegistry.kt`. Each `PidDefinition` has:
 `accel_pedal`, `egr_error`, `lambda`, `driver_torque`, `evap_purge`, `evap_pressure`,
 `o2_present`, `monitor_readiness`
 
-`PidRegistry.health` — the 40-PID subset actually consumed by `VehicleState` / `DiagnosticsInterpreter`.
-Excludes: `ref_torque`, `dist_mil`, `time_cleared`, `warmups_cleared`, `fuel_rail_pressure`, `fuel_rail_pressure_gdi`, `accel_pedal`, `ethanol`.
+`PidRegistry.health` — the 50-PID subset actually consumed by `VehicleState` / `DiagnosticsInterpreter`.
+Excludes: `afr_ma_b1s1`, `afr_ma_b1s2`, `afr_ma_b2s1`, `afr_ma_b2s2`, `ref_torque`,
+`dist_mil`, `time_cleared`, `warmups_cleared`, `fuel_rail_pressure`, `fuel_rail_pressure_gdi`,
+`accel_pedal`, `ethanol`.
 
 ## Data flow
 
@@ -127,11 +132,11 @@ Each `SensorSample` now carries `timestampMs` (wall-clock ms) and `latencyMs` (E
 
 | Context | PID list | Weight function |
 |---|---|---|
-| Overview (foregrounded) | `PidRegistry.health` (40 PIDs) | `overviewWeightOf` — rpm/speed/throttle=4, coolant/voltage=2, rest=1 |
-| Health tab (foregrounded) | `PidRegistry.health` (40 PIDs) | `diagnosticWeightOf` — fuel-trim/O2/MAF/rpm=4, coolant/timing/etc=2, counters=1 |
+| Overview (foregrounded) | `PidRegistry.health` (50 PIDs) | `overviewWeightOf` — rpm/speed/throttle=4, coolant/voltage=2, rest=1 |
+| Health tab (foregrounded) | `PidRegistry.health` (50 PIDs) | `diagnosticWeightOf` — fuel-trim/O2/MAF/rpm=4, coolant/timing/etc=2, counters=1 |
 | Live tab | user-enabled PIDs | `diagnosticWeightOf` |
-| DTC tab | `PidRegistry.health` (40 PIDs) | `diagnosticWeightOf` |
-| Backgrounded | `PidRegistry.health` (40 PIDs) | `diagnosticWeightOf` — health checks still run, no point polling display-only PIDs |
+| DTC tab | `PidRegistry.health` (50 PIDs) | `diagnosticWeightOf` |
+| Backgrounded | `PidRegistry.health` (50 PIDs) | `diagnosticWeightOf` — health checks still run, no point polling display-only PIDs |
 | Fuel Trim Deep Dive open | `stft`, `ltft`, `stft2`, `ltft2` only | `diagnosticWeightOf` |
 
 The enabled/disabled PID toggle on the Live tab is **display-only** (chart lines + sidebar); it does not affect which PIDs are polled on other tabs.
