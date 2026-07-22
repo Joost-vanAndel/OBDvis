@@ -145,4 +145,6 @@ Always follow safe driving practices and consult a qualified technician when nee
 
 ## License
 
-Apache License 2.0. See `LICENSE`.
+OBDvis is licensed under the Apache License 2.0. See [LICENSE](LICENSE).
+Third-party components and their license terms are documented in
+[Third-Party Software Notices](android/app/src/main/assets/THIRD_PARTY_NOTICES.txt).
