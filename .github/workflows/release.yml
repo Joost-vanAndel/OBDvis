@@ -1,0 +1,228 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - "v*"
+
+permissions:
+  contents: read
+
+concurrency:
+  group: release-${{ github.ref }}
+  cancel-in-progress: false
+
+jobs:
+  android:
+    name: Build and publish Android release
+    runs-on: ubuntu-latest
+    timeout-minutes: 30
+    environment: github-release
+
+    permissions:
+      contents: write
+
+    defaults:
+      run:
+        working-directory: android
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@df4cb1c069e1874edd31b4311f1884172cec0e10 # v6
+        with:
+          persist-credentials: false
+
+      - name: Set up JDK
+        uses: actions/setup-java@0f481fcb613427c0f801b606911222b5b6f3083a # v5
+        with:
+          distribution: temurin
+          java-version: 17
+
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@90ddb51e90a5fd9ba75f40cf85156b7b41bf76a3 # v6
+        with:
+          cache-provider: basic
+
+      - name: Make Gradle wrapper executable
+        run: chmod +x ./gradlew
+
+      - name: Verify tag matches app version
+        shell: bash
+        run: |
+          version_name="$(
+            sed -nE \
+              's/^[[:space:]]*versionName[[:space:]]*=[[:space:]]*"([^"]+)".*$/\1/p' \
+              app/build.gradle.kts |
+            head -n 1
+          )"
+
+          if [[ -z "${version_name}" ]]; then
+            echo "Could not read versionName from app/build.gradle.kts." >&2
+            exit 1
+          fi
+
+          expected_tag="v${version_name}"
+
+          if [[ "${GITHUB_REF_NAME}" != "${expected_tag}" ]]; then
+            echo "Tag ${GITHUB_REF_NAME} does not match versionName ${version_name}." >&2
+            echo "Expected tag: ${expected_tag}" >&2
+            exit 1
+          fi
+
+      - name: Run unit tests
+        run: ./gradlew test --stacktrace
+
+      - name: Run Android lint
+        run: ./gradlew lintRelease --stacktrace
+
+      - name: Prepare app-signing key
+        shell: bash
+        env:
+          KEYSTORE_BASE64: ${{ secrets.ANDROID_APP_SIGNING_KEYSTORE_BASE64 }}
+          KEY_ALIAS: ${{ secrets.ANDROID_APP_SIGNING_KEY_ALIAS }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_APP_SIGNING_STORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_APP_SIGNING_KEY_PASSWORD }}
+        run: |
+          missing=()
+          [[ -n "${KEYSTORE_BASE64}" ]] || missing+=(ANDROID_APP_SIGNING_KEYSTORE_BASE64)
+          [[ -n "${KEY_ALIAS}" ]] || missing+=(ANDROID_APP_SIGNING_KEY_ALIAS)
+          [[ -n "${STORE_PASSWORD}" ]] || missing+=(ANDROID_APP_SIGNING_STORE_PASSWORD)
+          [[ -n "${KEY_PASSWORD}" ]] || missing+=(ANDROID_APP_SIGNING_KEY_PASSWORD)
+
+          if (( ${#missing[@]} > 0 )); then
+            echo "Missing required environment secrets: ${missing[*]}" >&2
+            exit 1
+          fi
+
+          keystore_path="${RUNNER_TEMP}/obdvis-app-signing.jks"
+          if ! printf '%s' "${KEYSTORE_BASE64}" | base64 --decode > "${keystore_path}"; then
+            echo "Could not decode app-signing keystore." >&2
+            rm -f "${keystore_path}"
+            exit 1
+          fi
+
+          chmod 600 "${keystore_path}"
+          echo "OBDVIS_KEYSTORE_PATH=${keystore_path}" >> "${GITHUB_ENV}"
+
+      - name: Build signed release APK
+        env:
+          KEY_ALIAS: ${{ secrets.ANDROID_APP_SIGNING_KEY_ALIAS }}
+          STORE_PASSWORD: ${{ secrets.ANDROID_APP_SIGNING_STORE_PASSWORD }}
+          KEY_PASSWORD: ${{ secrets.ANDROID_APP_SIGNING_KEY_PASSWORD }}
+        run: |
+          ./gradlew assembleRelease --stacktrace \
+            -Pandroid.injected.signing.store.file="${OBDVIS_KEYSTORE_PATH}" \
+            -Pandroid.injected.signing.store.password="${STORE_PASSWORD}" \
+            -Pandroid.injected.signing.key.alias="${KEY_ALIAS}" \
+            -Pandroid.injected.signing.key.password="${KEY_PASSWORD}"
+
+      - name: Verify APK signature
+        shell: bash
+        env:
+          EXPECTED_SHA256: ${{ vars.ANDROID_APP_SIGNING_CERT_SHA256 }}
+        run: |
+          apk="app/build/outputs/apk/release/app-release.apk"
+
+          if [[ ! -f "${apk}" ]]; then
+            echo "Release APK was not created: ${apk}" >&2
+            exit 1
+          fi
+
+          apksigner_path="$(
+            find "${ANDROID_HOME}/build-tools" \
+              -mindepth 2 \
+              -maxdepth 2 \
+              -type f \
+              -name apksigner |
+            sort -V |
+            tail -n 1
+          )"
+
+          if [[ -z "${apksigner_path}" ]]; then
+            echo "Could not locate apksigner." >&2
+            exit 1
+          fi
+
+          "${apksigner_path}" verify \
+            --verbose \
+            --print-certs \
+            "${apk}" |
+            tee "${RUNNER_TEMP}/signature.txt"
+
+          actual_sha256="$(
+            sed -nE \
+              's/^Signer #1 certificate SHA-256 digest: (.*)$/\1/p' \
+              "${RUNNER_TEMP}/signature.txt" |
+            head -n 1 |
+            tr -d ':[:space:]' |
+            tr '[:lower:]' '[:upper:]'
+          )"
+
+          expected_sha256="$(
+            printf '%s' "${EXPECTED_SHA256}" |
+            tr -d ':[:space:]' |
+            tr '[:lower:]' '[:upper:]'
+          )"
+
+          if [[ -z "${actual_sha256}" ]]; then
+            echo "Could not read the signing certificate fingerprint from the APK." >&2
+            exit 1
+          fi
+
+          if [[ -z "${expected_sha256}" ]]; then
+            echo "ANDROID_APP_SIGNING_CERT_SHA256 is not configured." >&2
+            exit 1
+          fi
+
+          if [[ "${actual_sha256}" != "${expected_sha256}" ]]; then
+            echo "Unexpected APK signing certificate." >&2
+            echo "Actual:   ${actual_sha256}" >&2
+            echo "Expected: ${expected_sha256}" >&2
+            exit 1
+          fi
+
+      - name: Prepare release assets
+        id: assets
+        shell: bash
+        run: |
+          source_apk="app/build/outputs/apk/release/app-release.apk"
+          asset_dir="${RUNNER_TEMP}/release-assets"
+          asset_name="OBDvis-${GITHUB_REF_NAME}.apk"
+
+          mkdir -p "${asset_dir}"
+          cp "${source_apk}" "${asset_dir}/${asset_name}"
+          (
+            cd "${asset_dir}"
+            sha256sum "${asset_name}" > "${asset_name}.sha256"
+          )
+
+          echo "directory=${asset_dir}" >> "${GITHUB_OUTPUT}"
+          echo "apk=${asset_name}" >> "${GITHUB_OUTPUT}"
+
+      - name: Publish GitHub release
+        shell: bash
+        env:
+          GH_TOKEN: ${{ github.token }}
+          ASSET_DIR: ${{ steps.assets.outputs.directory }}
+          APK_NAME: ${{ steps.assets.outputs.apk }}
+        run: |
+          if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
+            echo "Release ${GITHUB_REF_NAME} already exists." >&2
+            echo "Refusing to replace published assets." >&2
+            exit 1
+          fi
+
+          gh release create "${GITHUB_REF_NAME}" \
+            "${ASSET_DIR}/${APK_NAME}" \
+            "${ASSET_DIR}/${APK_NAME}.sha256" \
+            --verify-tag \
+            --title "OBDvis ${GITHUB_REF_NAME}" \
+            --generate-notes
+
+      - name: Remove app-signing key
+        if: always()
+        shell: bash
+        run: |
+          if [[ -n "${OBDVIS_KEYSTORE_PATH:-}" ]]; then
+            rm -f -- "${OBDVIS_KEYSTORE_PATH}"
+          fi

@@ -79,6 +79,31 @@ Before opening a pull request:
 - Mention any tests that were not run and why.
 - Keep unrelated refactors out of feature or bug-fix PRs.
 
+## Releases
+
+GitHub releases are created by `.github/workflows/release.yml` when a `v*` tag
+is pushed. Before tagging, update `versionCode` and `versionName` in
+`android/app/build.gradle.kts`; the tag must equal `v` followed by `versionName`
+(for example, `v0.1.7`).
+
+Create a `github-release` GitHub Actions environment with a required reviewer.
+Configure these environment secrets before publishing a release:
+
+- `ANDROID_APP_SIGNING_KEYSTORE_BASE64` — the permanent app-signing keystore
+  encoded as base64.
+- `ANDROID_APP_SIGNING_KEY_ALIAS` — the app-signing key alias.
+- `ANDROID_APP_SIGNING_STORE_PASSWORD` — the app-signing keystore password.
+- `ANDROID_APP_SIGNING_KEY_PASSWORD` — the app-signing key password.
+
+Also configure `ANDROID_APP_SIGNING_CERT_SHA256` as a repository variable. Set
+it to the app-signing certificate's SHA-256 fingerprint from `keytool -list -v`.
+This prevents publishing an APK signed by an unexpected key. Keep any future
+Play Store upload key separate from this GitHub APK release workflow.
+
+The workflow runs unit tests and release lint, builds a signed APK, and attaches
+the APK and its SHA-256 checksum to a GitHub release with generated notes.
+Existing releases and their assets are never overwritten.
+
 ## AI Agent Notes
 
 `AGENTS.md` is the source of truth for AI coding agent instructions in this
