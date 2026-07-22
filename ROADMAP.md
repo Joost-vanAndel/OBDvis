@@ -17,7 +17,7 @@ promise that every item will be built.
 - Add screenshots or short demo media to the README.
 - Expand unit tests around edge-case ELM327 responses and multi-frame DTC data.
 - Improve diagnostics explanations and data limitation messages.
-- Add release automation for debug builds and test runs.
+- Continue hardening CI and signed-release automation as the project grows.
 - Add optional import/export flows for user-shared diagnostic sessions, with
   privacy safeguards.
 
