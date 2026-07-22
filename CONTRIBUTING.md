@@ -101,8 +101,9 @@ This prevents publishing an APK signed by an unexpected key. Keep any future
 Play Store upload key separate from this GitHub APK release workflow.
 
 The workflow runs unit tests and release lint, builds a signed APK, and attaches
-the APK and its SHA-256 checksum to a GitHub release with generated notes.
-Existing releases and their assets are never overwritten.
+the APK, its SHA-256 checksum, and the packaged third-party notices to a GitHub
+release with generated notes. Existing releases and their assets are never
+overwritten.
 
 ## AI Agent Notes
 

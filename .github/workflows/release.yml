@@ -181,6 +181,11 @@ jobs:
             exit 1
           fi
 
+          if ! jar tf "${apk}" | grep -Fxq "assets/THIRD_PARTY_NOTICES.txt"; then
+            echo "Release APK does not contain the third-party notices asset." >&2
+            exit 1
+          fi
+
       - name: Prepare release assets
         id: assets
         shell: bash
@@ -188,9 +193,11 @@ jobs:
           source_apk="app/build/outputs/apk/release/app-release.apk"
           asset_dir="${RUNNER_TEMP}/release-assets"
           asset_name="OBDvis-${GITHUB_REF_NAME}.apk"
+          notices_name="OBDvis-${GITHUB_REF_NAME}-THIRD-PARTY-NOTICES.txt"
 
           mkdir -p "${asset_dir}"
           cp "${source_apk}" "${asset_dir}/${asset_name}"
+          cp "app/src/main/assets/THIRD_PARTY_NOTICES.txt" "${asset_dir}/${notices_name}"
           (
             cd "${asset_dir}"
             sha256sum "${asset_name}" > "${asset_name}.sha256"
@@ -198,6 +205,7 @@ jobs:
 
           echo "directory=${asset_dir}" >> "${GITHUB_OUTPUT}"
           echo "apk=${asset_name}" >> "${GITHUB_OUTPUT}"
+          echo "notices=${notices_name}" >> "${GITHUB_OUTPUT}"
 
       - name: Publish GitHub release
         shell: bash
@@ -205,6 +213,7 @@ jobs:
           GH_TOKEN: ${{ github.token }}
           ASSET_DIR: ${{ steps.assets.outputs.directory }}
           APK_NAME: ${{ steps.assets.outputs.apk }}
+          NOTICES_NAME: ${{ steps.assets.outputs.notices }}
         run: |
           if gh release view "${GITHUB_REF_NAME}" >/dev/null 2>&1; then
             echo "Release ${GITHUB_REF_NAME} already exists." >&2
@@ -215,6 +224,7 @@ jobs:
           gh release create "${GITHUB_REF_NAME}" \
             "${ASSET_DIR}/${APK_NAME}" \
             "${ASSET_DIR}/${APK_NAME}.sha256" \
+            "${ASSET_DIR}/${NOTICES_NAME}" \
             --verify-tag \
             --title "OBDvis ${GITHUB_REF_NAME}" \
             --generate-notes

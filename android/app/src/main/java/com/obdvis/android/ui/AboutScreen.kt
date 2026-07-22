@@ -1,5 +1,6 @@
 package com.obdvis.android.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -23,6 +24,10 @@ import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
+import androidx.compose.runtime.getValue
+import androidx.compose.runtime.mutableStateOf
+import androidx.compose.runtime.remember
+import androidx.compose.runtime.setValue
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalUriHandler
@@ -39,6 +44,16 @@ import com.obdvis.android.ui.theme.Surface as AppSurface
 @Composable
 fun AboutScreen(onBack: () -> Unit) {
     val uriHandler = LocalUriHandler.current
+    var showThirdPartyNotices by remember { mutableStateOf(false) }
+
+    BackHandler(enabled = showThirdPartyNotices) {
+        showThirdPartyNotices = false
+    }
+
+    if (showThirdPartyNotices) {
+        ThirdPartyNoticesScreen(onBack = { showThirdPartyNotices = false })
+        return
+    }
 
     OBDvisTheme {
         Column(
@@ -86,7 +101,7 @@ fun AboutScreen(onBack: () -> Unit) {
                 HorizontalDivider(color = Border)
 
                 Column {
-                    Text("Repository", style = MaterialTheme.typography.titleSmall, color = OnSurface)
+                    Text("Source and licenses", style = MaterialTheme.typography.titleSmall, color = OnSurface)
                     Spacer(Modifier.height(4.dp))
                     TextButton(
                         onClick = { uriHandler.openUri(REPOSITORY_URL) },
@@ -100,6 +115,12 @@ fun AboutScreen(onBack: () -> Unit) {
                             tint = Primary,
                             modifier = Modifier.size(16.dp),
                         )
+                    }
+                    TextButton(
+                        onClick = { showThirdPartyNotices = true },
+                        contentPadding = PaddingValues(horizontal = 0.dp, vertical = 8.dp),
+                    ) {
+                        Text("Open-source licenses", color = Primary)
                     }
                 }
             }
