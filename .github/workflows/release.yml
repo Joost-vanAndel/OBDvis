@@ -151,7 +151,7 @@ jobs:
 
           actual_sha256="$(
             sed -nE \
-              's/^Signer #1 certificate SHA-256 digest: (.*)$/\1/p' \
+              's/^.*certificate SHA-256 digest: (.*)$/\1/p' \
               "${RUNNER_TEMP}/signature.txt" |
             head -n 1 |
             tr -d ':[:space:]' |
