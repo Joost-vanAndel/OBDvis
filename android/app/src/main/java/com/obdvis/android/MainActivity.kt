@@ -18,9 +18,11 @@ import androidx.lifecycle.ViewModel
 import androidx.lifecycle.ViewModelProvider
 import com.obdvis.android.AppSettings
 import com.obdvis.android.NotificationHelper
+import com.obdvis.android.domain.health.SavedDrive
 import com.obdvis.android.domain.model.ConnectionState
 import com.obdvis.android.ui.DevicePickerScreen
 import com.obdvis.android.ui.DashboardScreen
+import com.obdvis.android.ui.DriveHistoryScreen
 import com.obdvis.android.ui.MainViewModel
 import com.obdvis.android.ui.PermissionScreen
 import com.obdvis.android.ui.PostDriveScreen
@@ -124,6 +126,12 @@ class MainActivity : ComponentActivity() {
 
             val connectionState by viewModel.connectionState.collectAsState()
             val postDriveData by viewModel.postDriveData.collectAsState()
+            val postDriveCsvContent by viewModel.postDriveCsvContent.collectAsState()
+            val driveHistory by viewModel.driveHistory.collectAsState()
+            var showDriveHistory by remember { mutableStateOf(false) }
+            var selectedSavedDrive by remember {
+                mutableStateOf<SavedDrive?>(null)
+            }
 
             when {
                 !permissionsGranted -> {
@@ -131,10 +139,36 @@ class MainActivity : ComponentActivity() {
                 }
 
                 postDriveData != null -> {
+                    val currentSummary = postDriveData!!
                     PostDriveScreen(
-                        data = postDriveData!!,
+                        data = currentSummary,
+                        csvContent = postDriveCsvContent,
                         onDismiss = viewModel::dismissPostDrive,
                         onSearchDtc = this::searchForDtc,
+                    )
+                }
+
+                selectedSavedDrive != null -> {
+                    val savedDrive = selectedSavedDrive!!
+                    PostDriveScreen(
+                        data = savedDrive.summary,
+                        csvContent = savedDrive.csvContent,
+                        title = "Saved Drive",
+                        onDismiss = { selectedSavedDrive = null },
+                        onSearchDtc = this::searchForDtc,
+                        onDelete = {
+                            viewModel.deleteSavedDrive(savedDrive.id)
+                            selectedSavedDrive = null
+                        },
+                    )
+                }
+
+                showDriveHistory -> {
+                    DriveHistoryScreen(
+                        drives = driveHistory,
+                        onBack = { showDriveHistory = false },
+                        onOpen = { selectedSavedDrive = it },
+                        onDelete = { viewModel.deleteSavedDrive(it.id) },
                     )
                 }
 
@@ -143,7 +177,11 @@ class MainActivity : ComponentActivity() {
                 }
 
                 else -> {
-                    DevicePickerScreen(viewModel = viewModel)
+                    DevicePickerScreen(
+                        viewModel = viewModel,
+                        historyCount = driveHistory.size,
+                        onOpenHistory = { showDriveHistory = true },
+                    )
                 }
             }
 

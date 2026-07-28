@@ -7,6 +7,7 @@ import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bluetooth
 import androidx.compose.material.icons.filled.BluetoothSearching
+import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
@@ -24,7 +25,11 @@ import com.obdvis.android.ui.theme.OBDvisTheme
 import com.obdvis.android.ui.theme.SubText
 
 @Composable
-fun DevicePickerScreen(viewModel: MainViewModel) {
+fun DevicePickerScreen(
+    viewModel: MainViewModel,
+    historyCount: Int,
+    onOpenHistory: () -> Unit,
+) {
     val context = LocalContext.current
     val devices by viewModel.pairedDevices.collectAsState()
     val connectionState by viewModel.connectionState.collectAsState()
@@ -57,7 +62,17 @@ fun DevicePickerScreen(viewModel: MainViewModel) {
                         Text(
                             "OBDvis",
                             style = MaterialTheme.typography.titleMedium,
+                            modifier = Modifier.weight(1f),
                         )
+                        TextButton(onClick = onOpenHistory) {
+                            Icon(
+                                Icons.Default.History,
+                                contentDescription = null,
+                                modifier = Modifier.size(17.dp),
+                            )
+                            Spacer(Modifier.width(5.dp))
+                            Text(if (historyCount > 0) "History ($historyCount)" else "History")
+                        }
                     }
                 }
 
