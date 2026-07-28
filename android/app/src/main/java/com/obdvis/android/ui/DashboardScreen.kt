@@ -1,10 +1,7 @@
 package com.obdvis.android.ui
 
 import android.content.res.Configuration
-import android.net.Uri
 import androidx.activity.compose.BackHandler
-import androidx.activity.compose.rememberLauncherForActivityResult
-import androidx.activity.result.contract.ActivityResultContracts
 import androidx.compose.foundation.background
 import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
@@ -90,20 +87,13 @@ fun DashboardScreen(viewModel: MainViewModel) {
     }
     val isPortrait = LocalConfiguration.current.orientation == Configuration.ORIENTATION_PORTRAIT
     val context = LocalContext.current
-
     val view = LocalView.current
     DisposableEffect(Unit) {
         val window = (view.context as android.app.Activity).window
         window.addFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON)
         onDispose { window.clearFlags(WindowManager.LayoutParams.FLAG_KEEP_SCREEN_ON) }
     }
-    val csvLauncher = rememberLauncherForActivityResult(
-        ActivityResultContracts.CreateDocument("text/csv")
-    ) { uri: Uri? ->
-        uri ?: return@rememberLauncherForActivityResult
-        val csv = viewModel.buildCsvContent()
-        context.contentResolver.openOutputStream(uri)?.use { it.write(csv.toByteArray()) }
-    }
+    val exportCsv = rememberCsvExportAction(viewModel::buildCsvContent)
 
     if (showSettings) {
         SettingsScreen(viewModel = viewModel, onBack = { showSettings = false })
@@ -303,7 +293,7 @@ fun DashboardScreen(viewModel: MainViewModel) {
                         onDisableAll = viewModel::disableAllPids,
                         normalizeChart = normalizeChart,
                         onToggleNormalize = viewModel::toggleNormalizeChart,
-                        onExportCsv = { csvLauncher.launch("obd_session.csv") },
+                        onExportCsv = { exportCsv("obd_session.csv") },
                         canExportCsv = chartData.isNotEmpty(),
                         modifier = Modifier
                             .fillMaxWidth()
@@ -323,7 +313,7 @@ fun DashboardScreen(viewModel: MainViewModel) {
                             onDisableAll = viewModel::disableAllPids,
                             normalizeChart = normalizeChart,
                             onToggleNormalize = viewModel::toggleNormalizeChart,
-                            onExportCsv = { csvLauncher.launch("obd_session.csv") },
+                            onExportCsv = { exportCsv("obd_session.csv") },
                             canExportCsv = chartData.isNotEmpty(),
                             modifier = Modifier
                                 .width(200.dp)

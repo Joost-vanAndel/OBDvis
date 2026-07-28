@@ -20,6 +20,7 @@ import com.obdvis.android.domain.model.SensorSample
 import com.obdvis.android.AppSettings
 import com.obdvis.android.NotificationHelper
 import com.obdvis.android.OBDVisApp
+import com.obdvis.android.data.history.DriveHistoryStore
 import com.obdvis.android.domain.health.DiagnosticSummary
 import com.obdvis.android.domain.health.DiagnosticsInterpreter
 import com.obdvis.android.domain.health.DtcReadResult
@@ -33,6 +34,7 @@ import com.obdvis.android.domain.health.HealthState
 import com.obdvis.android.domain.health.OperatingState
 import com.obdvis.android.domain.health.PeakGForce
 import com.obdvis.android.domain.health.PostDriveData
+import com.obdvis.android.domain.health.SavedDrive
 import com.obdvis.android.domain.health.VehicleState
 import com.obdvis.android.domain.polling.PidPriorityGroups
 import com.obdvis.android.domain.store.SampleStore
@@ -47,7 +49,11 @@ import kotlinx.coroutines.flow.StateFlow
 import kotlinx.coroutines.flow.asStateFlow
 import kotlinx.coroutines.flow.update
 import kotlinx.coroutines.launch
+import kotlinx.coroutines.sync.Mutex
+import kotlinx.coroutines.sync.withLock
+import java.io.File
 import java.io.IOException
+import java.util.Locale
 import java.util.UUID
 
 enum class ActiveTab { OVERVIEW, LIVE, HEALTH, DTC }
@@ -69,6 +75,9 @@ class MainViewModel(
     private val appSettings: AppSettings? = null,
     private val notificationHelper: NotificationHelper? = null,
     application: Application? = null,
+    private val driveHistoryStore: DriveHistoryStore? = application?.let {
+        DriveHistoryStore(File(it.filesDir, "drive_history"))
+    },
 ) : ViewModel() {
 
     private val sharedAutoState = (application as? OBDVisApp)?.sharedAutoState
@@ -172,6 +181,7 @@ class MainViewModel(
     @Volatile private var activeSession: Session? = null
     @Volatile private var engineWasRunning = false
     private var sessionStartMs = 0L
+    private var lastCapturedSessionStartMs: Long? = null
 
     @SuppressLint("MissingPermission")
     fun loadPairedDevices(context: Context) {
@@ -430,10 +440,10 @@ class MainViewModel(
         activeSession = null
         stream?.close()
         stream = null
+        capturePostDriveIfEligible()
         sampleStore.clear()
         _dtcResult.value = DtcReadResult()
         _dtcScreenState.value = DtcScreenState.Idle
-        capturePostDriveIfEligible()
         // Reset all per-session health state after capture
         findingStateManager.reset()
         _activeFindings.value = emptyMap()
@@ -483,13 +493,34 @@ class MainViewModel(
     private val _postDriveData = MutableStateFlow<PostDriveData?>(null)
     val postDriveData: StateFlow<PostDriveData?> = _postDriveData.asStateFlow()
 
+    private val _postDriveCsvContent = MutableStateFlow("")
+    val postDriveCsvContent: StateFlow<String> = _postDriveCsvContent.asStateFlow()
+
+    private val _driveHistory = MutableStateFlow<List<SavedDrive>>(emptyList())
+    val driveHistory: StateFlow<List<SavedDrive>> = _driveHistory.asStateFlow()
+    private val driveHistoryMutex = Mutex()
+
     fun dismissPostDrive() {
         _postDriveData.value = null
+        _postDriveCsvContent.value = ""
     }
 
+    fun deleteSavedDrive(id: Long) {
+        val store = driveHistoryStore ?: return
+        viewModelScope.launch(Dispatchers.IO) {
+            driveHistoryMutex.withLock {
+                runCatching { store.delete(id) }
+                    .onSuccess { _driveHistory.value = it }
+            }
+        }
+    }
+
+    @Synchronized
     private fun capturePostDriveIfEligible() {
         if (totalHealthChecks < MIN_SNAPSHOTS_FOR_SUMMARY) return
-        _postDriveData.value = PostDriveData(
+        if (lastCapturedSessionStartMs == sessionStartMs) return
+
+        val summary = PostDriveData(
             sessionStartMs = sessionStartMs,
             sessionEndMs = System.currentTimeMillis(),
             findingRecords = findingStateManager.snapshotAllRecords(),
@@ -501,6 +532,18 @@ class MainViewModel(
             peakCoolantTempC = peakCoolantTempC.takeIf { it > 0f },
             peakGForce = _peakGForce.value.takeIf { it.left + it.right + it.forward + it.backward > 0.05f },
         )
+        val savedDrive = SavedDrive(summary = summary, csvContent = buildCsvContent())
+        lastCapturedSessionStartMs = sessionStartMs
+        _postDriveData.value = summary
+        _postDriveCsvContent.value = savedDrive.csvContent
+
+        val store = driveHistoryStore ?: return
+        viewModelScope.launch(Dispatchers.IO) {
+            driveHistoryMutex.withLock {
+                runCatching { store.save(savedDrive) }
+                    .onSuccess { _driveHistory.value = it }
+            }
+        }
     }
 
     // Cached stored DTCs — shared between health analysis and DTC screen
@@ -580,7 +623,7 @@ class MainViewModel(
         }
         allEntries.sortBy { it.first }
         for ((elapsed, pid, value) in allEntries) {
-            sb.append("%.3f,%s,%.4f\n".format(elapsed, pid, value))
+            sb.append(String.format(Locale.US, "%.3f,%s,%.4f\n", elapsed, pid, value))
         }
         return sb.toString()
     }
@@ -609,6 +652,13 @@ class MainViewModel(
     fun disableAllPids() { _enabledPids.value = emptySet() }
 
     init {
+        driveHistoryStore?.let { store ->
+            viewModelScope.launch(Dispatchers.IO) {
+                driveHistoryMutex.withLock {
+                    _driveHistory.value = store.load()
+                }
+            }
+        }
         if (sharedAutoState != null) {
             viewModelScope.launch {
                 launch { _connectionState.collect { sharedAutoState.updateConnection(it) } }

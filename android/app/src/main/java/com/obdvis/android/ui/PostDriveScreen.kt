@@ -1,5 +1,6 @@
 package com.obdvis.android.ui
 
+import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -10,6 +11,8 @@ import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Close
+import androidx.compose.material.icons.filled.Delete
+import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Search
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
@@ -35,10 +38,17 @@ import kotlin.math.sqrt
 @Composable
 fun PostDriveScreen(
     data: PostDriveData,
+    csvContent: String,
     onDismiss: () -> Unit,
     onSearchDtc: (String) -> Unit,
+    title: String = "Drive Summary",
+    onDelete: (() -> Unit)? = null,
     modifier: Modifier = Modifier,
 ) {
+    BackHandler(onBack = onDismiss)
+    val exportCsv = rememberCsvExportAction { csvContent }
+    var showDeleteConfirmation by remember { mutableStateOf(false) }
+
     Column(
         modifier = modifier
             .fillMaxSize()
@@ -51,12 +61,30 @@ fun PostDriveScreen(
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                text = "Drive Summary",
+                text = title,
                 color = OnSurface,
                 fontSize = 18.sp,
                 fontWeight = FontWeight.SemiBold,
                 modifier = Modifier.weight(1f),
             )
+            TextButton(
+                onClick = { exportCsv("obd_drive_${data.sessionStartMs}.csv") },
+                enabled = csvContent.lineSequence().drop(1).any { it.isNotBlank() },
+                contentPadding = PaddingValues(horizontal = 8.dp),
+            ) {
+                Icon(
+                    Icons.Default.Download,
+                    contentDescription = null,
+                    modifier = Modifier.size(17.dp),
+                )
+                Spacer(Modifier.width(5.dp))
+                Text("CSV")
+            }
+            if (onDelete != null) {
+                IconButton(onClick = { showDeleteConfirmation = true }) {
+                    Icon(Icons.Default.Delete, contentDescription = "Delete drive", tint = SubText)
+                }
+            }
             IconButton(onClick = onDismiss) {
                 Icon(Icons.Default.Close, contentDescription = "Dismiss", tint = SubText)
             }
@@ -78,6 +106,25 @@ fun PostDriveScreen(
             DtcSummaryCard(data, onSearchDtc)
             NotableFindingsCard(data)
         }
+    }
+
+    if (showDeleteConfirmation && onDelete != null) {
+        AlertDialog(
+            onDismissRequest = { showDeleteConfirmation = false },
+            title = { Text("Delete saved drive?") },
+            text = { Text("This drive summary and its CSV data will be removed from this device.") },
+            confirmButton = {
+                TextButton(
+                    onClick = {
+                        showDeleteConfirmation = false
+                        onDelete()
+                    }
+                ) { Text("Delete") }
+            },
+            dismissButton = {
+                TextButton(onClick = { showDeleteConfirmation = false }) { Text("Cancel") }
+            },
+        )
     }
 }
 
