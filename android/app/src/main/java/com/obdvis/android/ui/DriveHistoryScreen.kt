@@ -77,11 +77,16 @@ fun DriveHistoryScreen(
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 IconButton(onClick = onBack) {
-                    Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back")
+                    Icon(
+                        Icons.AutoMirrored.Filled.ArrowBack,
+                        contentDescription = "Back",
+                        tint = OnSurface,
+                    )
                 }
                 Text(
                     "Drive History",
                     style = MaterialTheme.typography.titleMedium,
+                    color = OnSurface,
                     modifier = Modifier.weight(1f),
                 )
             }
