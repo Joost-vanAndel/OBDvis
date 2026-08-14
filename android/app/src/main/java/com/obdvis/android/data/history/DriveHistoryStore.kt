@@ -42,11 +42,7 @@ class DriveHistoryStore(
         val target = fileFor(drive.id)
         val temporary = File(directory, "${target.name}.tmp")
         try {
-            DataOutputStream(
-                GZIPOutputStream(
-                    BufferedOutputStream(FileOutputStream(temporary))
-                )
-            ).use { output -> DriveRecordCodec.write(output, drive) }
+            write(temporary, drive)
 
             if (target.exists() && !target.delete()) {
                 throw IOException("Unable to replace saved drive ${drive.id}")
@@ -59,6 +55,66 @@ class DriveHistoryStore(
         }
 
         return load()
+    }
+
+    /**
+     * Replaces the in-progress drive checkpoint while retaining the previous valid copy until the
+     * new one is fully written. Checkpoints are deliberately excluded from [load].
+     */
+    @Synchronized
+    fun saveCheckpoint(drive: SavedDrive) {
+        ensureDirectory()
+        val target = checkpointFile()
+        val temporary = checkpointTemporaryFile()
+        val backup = checkpointBackupFile()
+
+        try {
+            write(temporary, drive)
+            if (backup.exists() && !backup.delete()) {
+                throw IOException("Unable to replace drive checkpoint backup")
+            }
+            if (target.exists() && !target.renameTo(backup)) {
+                throw IOException("Unable to preserve previous drive checkpoint")
+            }
+            if (!temporary.renameTo(target)) {
+                if (!target.exists() && backup.exists()) backup.renameTo(target)
+                throw IOException("Unable to finish saving drive checkpoint")
+            }
+            backup.delete()
+        } finally {
+            if (temporary.exists()) temporary.delete()
+        }
+    }
+
+    /**
+     * Promotes a checkpoint left by process death into completed history. A completed record with
+     * the same session id always wins over an older checkpoint.
+     */
+    @Synchronized
+    fun recoverCheckpoint(): SavedDrive? {
+        val checkpoint = checkpointCandidates()
+            .mapNotNull { file -> runCatching { file to read(file) }.getOrNull() }
+            .maxByOrNull { (_, drive) -> drive.summary.sessionEndMs }
+            ?: return null
+        val drive = checkpoint.second
+        val completedFile = fileFor(drive.id)
+
+        if (completedFile.exists()) {
+            clearCheckpointFiles()
+            return null
+        }
+
+        save(drive)
+        clearCheckpointFiles()
+        return read(completedFile)
+    }
+
+    @Synchronized
+    fun clearCheckpoint(sessionId: Long) {
+        val checkpoint = checkpointCandidates()
+            .mapNotNull { file -> runCatching { read(file) }.getOrNull() }
+            .maxByOrNull { it.summary.sessionEndMs }
+        if (checkpoint == null || checkpoint.id == sessionId) clearCheckpointFiles()
     }
 
     @Synchronized
@@ -79,12 +135,38 @@ class DriveHistoryStore(
         return drive.copy(fileSizeBytes = file.length())
     }
 
+    private fun write(file: File, drive: SavedDrive) {
+        DataOutputStream(
+            GZIPOutputStream(
+                BufferedOutputStream(FileOutputStream(file))
+            )
+        ).use { output -> DriveRecordCodec.write(output, drive) }
+    }
+
     private fun historyFiles(): List<File> =
         directory.listFiles { file -> file.isFile && file.extension == FILE_EXTENSION }
             ?.toList()
             ?: emptyList()
 
     private fun fileFor(id: Long): File = File(directory, "$id.$FILE_EXTENSION")
+
+    private fun checkpointFile(): File = File(directory, CHECKPOINT_FILE_NAME)
+
+    private fun checkpointTemporaryFile(): File = File(directory, "$CHECKPOINT_FILE_NAME.tmp")
+
+    private fun checkpointBackupFile(): File = File(directory, "$CHECKPOINT_FILE_NAME.backup")
+
+    private fun checkpointCandidates(): List<File> =
+        listOf(checkpointFile(), checkpointTemporaryFile(), checkpointBackupFile())
+            .filter(File::isFile)
+
+    private fun clearCheckpointFiles() {
+        listOf(checkpointFile(), checkpointTemporaryFile(), checkpointBackupFile()).forEach { file ->
+            if (file.exists() && !file.delete()) {
+                throw IOException("Unable to remove drive checkpoint ${file.name}")
+            }
+        }
+    }
 
     private fun ensureDirectory() {
         if (!directory.exists() && !directory.mkdirs()) {
@@ -94,6 +176,7 @@ class DriveHistoryStore(
 
     companion object {
         private const val FILE_EXTENSION = "obd-drive"
+        private const val CHECKPOINT_FILE_NAME = "active-drive.checkpoint"
     }
 }
 

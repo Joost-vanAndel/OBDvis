@@ -68,6 +68,7 @@ private const val MIN_SNAPSHOTS_FOR_SUMMARY = 3
 private const val MAX_VEHICLE_STATE_HISTORY = 300
 private const val CONTINUOUS_HEALTH_CHECK_INTERVAL_MS = 1_000L
 private const val PERIODIC_FOREGROUND_HEALTH_CHECK_INTERVAL_MS = 30_000L
+private const val DRIVE_CHECKPOINT_INTERVAL_MS = 15_000L
 private val FUEL_TRIM_PIDS = listOf("stft", "ltft", "stft2", "ltft2")
     .mapNotNull { PidRegistry.byId[it] }
 
@@ -177,6 +178,7 @@ class MainViewModel(
     private var sessionJob: Job? = null
     private var bgHealthJob: Job? = null
     private var engineOffJob: Job? = null
+    private var driveCheckpointJob: Job? = null
     private var stream: BluetoothSocketStream? = null
     @Volatile private var activeSession: Session? = null
     @Volatile private var engineWasRunning = false
@@ -241,7 +243,10 @@ class MainViewModel(
                             }
                         }
                     }
-                    else -> delay(PERIODIC_FOREGROUND_HEALTH_CHECK_INTERVAL_MS)
+                    else -> {
+                        if (session != null) lastDtcMs = performHealthCheck(session, lastDtcMs)
+                        delay(PERIODIC_FOREGROUND_HEALTH_CHECK_INTERVAL_MS)
+                    }
                 }
             }
         }
@@ -331,6 +336,7 @@ class MainViewModel(
                 engineWasRunning = false
                 _peakGForce.value = PeakGForce()
                 _connectionState.value = ConnectionState.Connected(info.name)
+                startDriveCheckpointing()
                 startBackgroundChecks()
 
                 session.readings().collect { sample -> onSample(sample) }
@@ -410,11 +416,13 @@ class MainViewModel(
 
         sessionStartMs = System.currentTimeMillis()
         engineWasRunning = false
+        _peakGForce.value = PeakGForce()
 
         sessionJob = viewModelScope.launch(Dispatchers.IO) {
             try {
                 val session = DemoSession(simulatedDtcs = listOf("P0300", "P0420"), ::pidsForActiveTab)
                 activeSession = session
+                startDriveCheckpointing()
                 startBackgroundChecks()
                 session.readings().collect { sample -> onSample(sample) }
             } catch (e: CancellationException) {
@@ -435,6 +443,8 @@ class MainViewModel(
         _driveEndDetected.value = false
         bgHealthJob?.cancel()
         bgHealthJob = null
+        driveCheckpointJob?.cancel()
+        driveCheckpointJob = null
         sessionJob?.cancel()
         sessionJob = null
         activeSession = null
@@ -520,9 +530,28 @@ class MainViewModel(
         if (totalHealthChecks < MIN_SNAPSHOTS_FOR_SUMMARY) return
         if (lastCapturedSessionStartMs == sessionStartMs) return
 
+        val savedDrive = buildSavedDrive(System.currentTimeMillis())
+        val summary = savedDrive.summary
+        lastCapturedSessionStartMs = sessionStartMs
+        _postDriveData.value = summary
+        _postDriveCsvContent.value = savedDrive.csvContent
+
+        val store = driveHistoryStore ?: return
+        viewModelScope.launch(Dispatchers.IO) {
+            driveHistoryMutex.withLock {
+                runCatching {
+                    val history = store.save(savedDrive)
+                    store.clearCheckpoint(savedDrive.id)
+                    history
+                }.onSuccess { _driveHistory.value = it }
+            }
+        }
+    }
+
+    private fun buildSavedDrive(endMs: Long): SavedDrive {
         val summary = PostDriveData(
             sessionStartMs = sessionStartMs,
-            sessionEndMs = System.currentTimeMillis(),
+            sessionEndMs = endMs,
             findingRecords = findingStateManager.snapshotAllRecords(),
             totalHealthChecks = totalHealthChecks,
             operatingStateCounts = operatingStateCounts.toMap(),
@@ -532,16 +561,22 @@ class MainViewModel(
             peakCoolantTempC = peakCoolantTempC.takeIf { it > 0f },
             peakGForce = _peakGForce.value.takeIf { it.left + it.right + it.forward + it.backward > 0.05f },
         )
-        val savedDrive = SavedDrive(summary = summary, csvContent = buildCsvContent())
-        lastCapturedSessionStartMs = sessionStartMs
-        _postDriveData.value = summary
-        _postDriveCsvContent.value = savedDrive.csvContent
+        return SavedDrive(summary = summary, csvContent = buildCsvContent())
+    }
 
+    private fun startDriveCheckpointing() {
+        driveCheckpointJob?.cancel()
         val store = driveHistoryStore ?: return
-        viewModelScope.launch(Dispatchers.IO) {
-            driveHistoryMutex.withLock {
-                runCatching { store.save(savedDrive) }
-                    .onSuccess { _driveHistory.value = it }
+        driveCheckpointJob = viewModelScope.launch {
+            while (isActive) {
+                delay(DRIVE_CHECKPOINT_INTERVAL_MS)
+                if (totalHealthChecks < MIN_SNAPSHOTS_FOR_SUMMARY) continue
+                val checkpoint = buildSavedDrive(System.currentTimeMillis())
+                withContext(Dispatchers.IO) {
+                    driveHistoryMutex.withLock {
+                        runCatching { store.saveCheckpoint(checkpoint) }
+                    }
+                }
             }
         }
     }
@@ -655,7 +690,13 @@ class MainViewModel(
         driveHistoryStore?.let { store ->
             viewModelScope.launch(Dispatchers.IO) {
                 driveHistoryMutex.withLock {
+                    val recovered = runCatching { store.recoverCheckpoint() }.getOrNull()
                     _driveHistory.value = store.load()
+                    if (recovered != null) {
+                        lastCapturedSessionStartMs = recovered.id
+                        _postDriveData.value = recovered.summary
+                        _postDriveCsvContent.value = recovered.csvContent
+                    }
                 }
             }
         }

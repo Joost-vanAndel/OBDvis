@@ -66,6 +66,49 @@ class DriveHistoryStoreTest {
         assertFalse(remaining.any { it.id == 1_000L })
     }
 
+    @Test
+    fun `checkpoint stays hidden until it is recovered`() {
+        val store = DriveHistoryStore(directory)
+        val checkpoint = savedDrive(startMs = 1_000L, endMs = 31_000L)
+
+        store.saveCheckpoint(checkpoint)
+
+        assertTrue(store.load().isEmpty())
+        val recovered = store.recoverCheckpoint()
+        assertEquals(checkpoint, recovered?.copy(fileSizeBytes = checkpoint.fileSizeBytes))
+        assertEquals(listOf(checkpoint.id), store.load().map { it.id })
+        assertEquals(1, directory.listFiles()?.size)
+    }
+
+    @Test
+    fun `new checkpoint replaces the previous snapshot`() {
+        val store = DriveHistoryStore(directory)
+        val first = savedDrive(startMs = 1_000L, endMs = 31_000L)
+        val latest = savedDrive(startMs = 1_000L, endMs = 46_000L)
+
+        store.saveCheckpoint(first)
+        store.saveCheckpoint(latest)
+
+        val recovered = store.recoverCheckpoint()
+        assertEquals(latest, recovered?.copy(fileSizeBytes = latest.fileSizeBytes))
+    }
+
+    @Test
+    fun `completed drive wins over a stale checkpoint`() {
+        val store = DriveHistoryStore(directory)
+        val completed = savedDrive(startMs = 1_000L, endMs = 61_000L)
+        val staleCheckpoint = savedDrive(startMs = 1_000L, endMs = 46_000L)
+        store.save(completed)
+        store.saveCheckpoint(staleCheckpoint)
+
+        val recovered = store.recoverCheckpoint()
+
+        assertEquals(null, recovered)
+        val loaded = store.load().single()
+        assertEquals(completed, loaded.copy(fileSizeBytes = completed.fileSizeBytes))
+        assertEquals(1, directory.listFiles()?.size)
+    }
+
     private fun savedDrive(startMs: Long, endMs: Long): SavedDrive {
         val finding = DiagnosticFinding(
             id = "fuel_trim_lean",

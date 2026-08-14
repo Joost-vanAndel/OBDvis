@@ -12,8 +12,8 @@ android {
         applicationId = "com.obdvis.android"
         minSdk = 23
         targetSdk = 35
-        versionCode = 10
-        versionName = "0.1.9"
+        versionCode = 12
+        versionName = "0.1.11"
     }
 
     buildTypes {
