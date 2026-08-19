@@ -266,6 +266,7 @@ fun DashboardScreen(viewModel: MainViewModel) {
                             autoUpdateEnabled = healthAutoUpdateEnabled,
                             onToggleAutoUpdate = viewModel::toggleHealthAutoUpdate,
                             onOpenFuelTrimDive = { viewModel.setFuelTrimFocused(true) },
+                            onOpenDtcs = { navigateToDtcs() },
                             modifier = Modifier.fillMaxWidth().weight(1f),
                         )
                     }
@@ -362,6 +363,7 @@ fun DashboardScreen(viewModel: MainViewModel) {
                                 autoUpdateEnabled = healthAutoUpdateEnabled,
                                 onToggleAutoUpdate = viewModel::toggleHealthAutoUpdate,
                                 onOpenFuelTrimDive = { viewModel.setFuelTrimFocused(true) },
+                                onOpenDtcs = { navigateToDtcs() },
                                 modifier = Modifier.weight(1f).fillMaxHeight(),
                             )
                         }
