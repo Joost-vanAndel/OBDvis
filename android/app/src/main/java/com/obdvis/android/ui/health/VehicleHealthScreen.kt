@@ -235,12 +235,18 @@ private fun ContinuousFindingsList(
 @Composable
 private fun FindingCard(record: FindingRecord, onOpenDtcs: () -> Unit) {
     val accentColor = record.finding.severity.color()
+    val navigationModifier = if (record.finding.id == DiagnosticFindingIds.DTC_PRESENT) {
+        Modifier.clickable(onClickLabel = "Open DTCs", onClick = onOpenDtcs)
+    } else {
+        Modifier
+    }
     Surface(
         color = Surface,
         shape = RoundedCornerShape(8.dp),
         modifier = Modifier
             .fillMaxWidth()
-            .border(0.5.dp, accentColor.copy(alpha = 0.4f), RoundedCornerShape(8.dp)),
+            .border(0.5.dp, accentColor.copy(alpha = 0.4f), RoundedCornerShape(8.dp))
+            .then(navigationModifier),
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
             Row(
@@ -273,22 +279,6 @@ private fun FindingCard(record: FindingRecord, onOpenDtcs: () -> Unit) {
                     verticalArrangement = Arrangement.spacedBy(6.dp),
                 ) {
                     record.finding.evidence.forEach { (label, value) -> EvidenceChip(label, value) }
-                }
-            }
-            if (record.finding.id == DiagnosticFindingIds.DTC_PRESENT) {
-                Spacer(Modifier.height(4.dp))
-                Row(
-                    modifier = Modifier.fillMaxWidth(),
-                    horizontalArrangement = Arrangement.End,
-                ) {
-                    TextButton(onClick = onOpenDtcs) {
-                        Text("View DTCs")
-                        Icon(
-                            Icons.Default.KeyboardArrowRight,
-                            contentDescription = null,
-                            modifier = Modifier.size(18.dp),
-                        )
-                    }
                 }
             }
         }
