@@ -4,6 +4,10 @@ enum class FindingSeverity { INFO, LOW, MEDIUM, HIGH }
 
 enum class FindingConfidence { LOW, MEDIUM, HIGH }
 
+object DiagnosticFindingIds {
+    const val DTC_PRESENT = "dtc_present"
+}
+
 /**
  * A single interpreted finding derived from vehicle sensor data.
  *

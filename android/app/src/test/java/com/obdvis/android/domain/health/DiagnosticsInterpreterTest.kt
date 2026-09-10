@@ -226,7 +226,7 @@ class DiagnosticsInterpreterTest {
             state(activeDtcs = listOf("P0300", "P0171")),
             emptyStore,
         )
-        val finding = summary.findings.first { it.id == "dtc_present" }
+        val finding = summary.findings.first { it.id == DiagnosticFindingIds.DTC_PRESENT }
         assertEquals(
             DtcInfo.genericExplanation("P0300"),
             finding.evidence["P0300"],
@@ -243,7 +243,7 @@ class DiagnosticsInterpreterTest {
             state(activeDtcs = emptyList()),
             emptyStore,
         )
-        assertFalse(hasFinding("dtc_present", summary))
+        assertFalse(hasFinding(DiagnosticFindingIds.DTC_PRESENT, summary))
     }
 
     // ── MIL runtime ──────────────────────────────────────────────────────────

@@ -745,12 +745,12 @@ object DiagnosticsInterpreter {
     }
 
     private fun dtcFinding(state: VehicleState): RuleResult {
-        val eligible = setOf("dtc_present")
+        val eligible = setOf(DiagnosticFindingIds.DTC_PRESENT)
         if (state.activeDtcs.isEmpty()) return RuleResult(emptyList(), eligible)
         val evidence = state.activeDtcs.associateWith(DtcInfo::genericExplanation)
         return RuleResult(
             listOf(DiagnosticFinding(
-                id          = "dtc_present",
+                id          = DiagnosticFindingIds.DTC_PRESENT,
                 title       = "Fault codes present",
                 description = "These may indicate current or intermittent faults. Use the DTCs tab to read and clear them.",
                 severity    = FindingSeverity.HIGH,

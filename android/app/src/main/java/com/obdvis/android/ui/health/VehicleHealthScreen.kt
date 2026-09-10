@@ -56,6 +56,7 @@ fun VehicleHealthScreen(
     autoUpdateEnabled: Boolean = false,
     onToggleAutoUpdate: () -> Unit = {},
     onOpenFuelTrimDive: () -> Unit = {},
+    onOpenDtcs: () -> Unit = {},
     modifier: Modifier = Modifier,
 ) {
     val summary = healthState.summaryOrNull()
@@ -78,7 +79,7 @@ fun VehicleHealthScreen(
 
             else -> {
                 HealthStatusHeader(summary = summary, activeIssueCount = activeIssues)
-                ContinuousFindingsList(activeFindings)
+                ContinuousFindingsList(activeFindings, onOpenDtcs)
                 FuelTrimDeepDiveCard(onOpen = onOpenFuelTrimDive)
                 DataLimitationsCard(summary?.dataLimitations ?: emptyList())
                 MonitorReadinessCard(summary?.vehicleState?.monitorStatuses)
@@ -197,7 +198,10 @@ private fun IdleContent() {
 // ── Continuous findings list ───────────────────────────────────────────────────
 
 @Composable
-private fun ContinuousFindingsList(activeFindings: Map<String, FindingRecord>) {
+private fun ContinuousFindingsList(
+    activeFindings: Map<String, FindingRecord>,
+    onOpenDtcs: () -> Unit,
+) {
     val issues = remember(activeFindings) {
         activeFindings.values
             .filter { it.finding.severity != FindingSeverity.INFO }
@@ -217,7 +221,7 @@ private fun ContinuousFindingsList(activeFindings: Map<String, FindingRecord>) {
                     if (record.status == FindingStatus.FADING) {
                         ResolvedFindingCard(record)
                     } else {
-                        FindingCard(record)
+                        FindingCard(record, onOpenDtcs)
                     }
                 }
             }
@@ -229,14 +233,20 @@ private fun ContinuousFindingsList(activeFindings: Map<String, FindingRecord>) {
 
 @OptIn(ExperimentalLayoutApi::class)
 @Composable
-private fun FindingCard(record: FindingRecord) {
+private fun FindingCard(record: FindingRecord, onOpenDtcs: () -> Unit) {
     val accentColor = record.finding.severity.color()
+    val navigationModifier = if (record.finding.id == DiagnosticFindingIds.DTC_PRESENT) {
+        Modifier.clickable(onClickLabel = "Open DTCs", onClick = onOpenDtcs)
+    } else {
+        Modifier
+    }
     Surface(
         color = Surface,
         shape = RoundedCornerShape(8.dp),
         modifier = Modifier
             .fillMaxWidth()
-            .border(0.5.dp, accentColor.copy(alpha = 0.4f), RoundedCornerShape(8.dp)),
+            .border(0.5.dp, accentColor.copy(alpha = 0.4f), RoundedCornerShape(8.dp))
+            .then(navigationModifier),
     ) {
         Column(modifier = Modifier.padding(12.dp)) {
             Row(
@@ -686,4 +696,3 @@ private fun FindingSeverity.color(): Color = when (this) {
     FindingSeverity.MEDIUM -> Color(0xFFFF9F43)
     FindingSeverity.HIGH   -> Color(0xFFCF6679)
 }
-
