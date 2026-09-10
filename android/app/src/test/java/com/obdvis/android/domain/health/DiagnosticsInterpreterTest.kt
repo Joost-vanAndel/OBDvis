@@ -30,6 +30,8 @@ class DiagnosticsInterpreterTest {
         ecuVoltage: Float? = null,
         engineRunTimeSec: Float? = null,
         distSinceCodesClearedKm: Float? = null,
+        egrPct: Float? = null,
+        egrErrorPct: Float? = null,
     ) = VehicleState(
         timestamp = System.currentTimeMillis(),
         rpm = rpm,
@@ -51,6 +53,8 @@ class DiagnosticsInterpreterTest {
         ecuVoltage = ecuVoltage,
         engineRunTimeSec = engineRunTimeSec,
         distSinceCodesClearedKm = distSinceCodesClearedKm,
+        egrPct = egrPct,
+        egrErrorPct = egrErrorPct,
     )
 
     private fun hasFinding(id: String, summary: DiagnosticSummary): Boolean =
@@ -261,6 +265,42 @@ class DiagnosticsInterpreterTest {
             emptyStore,
         )
         assertFalse(hasFinding("mil_runtime", summary))
+    }
+
+    // ── EGR control ───────────────────────────────────────────────────────────
+
+    @Test
+    fun `interpret suppresses EGR error while hybrid is driving electrically`() {
+        val summary = DiagnosticsInterpreter.interpret(
+            state(
+                rpm = 0f,
+                speedKph = 30f,
+                egrPct = 30f,
+                egrErrorPct = 50f,
+            ),
+            emptyStore,
+        )
+
+        assertEquals(OperatingState.EV_DRIVE, summary.operatingState)
+        assertFalse(hasFinding("egr_error_high", summary))
+        assertFalse(summary.eligibleFindingIds.contains("egr_error_high"))
+    }
+
+    @Test
+    fun `interpret reports EGR error while engine is running`() {
+        val summary = DiagnosticsInterpreter.interpret(
+            state(
+                rpm = 2_000f,
+                speedKph = 60f,
+                throttlePct = 20f,
+                egrPct = 30f,
+                egrErrorPct = 50f,
+            ),
+            emptyStore,
+        )
+
+        assertTrue(hasFinding("egr_error_high", summary))
+        assertTrue(summary.eligibleFindingIds.contains("egr_error_high"))
     }
 
     // ── Wideband (AFR) O2 sensor findings ────────────────────────────────────

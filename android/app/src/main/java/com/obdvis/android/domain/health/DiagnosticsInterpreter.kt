@@ -395,7 +395,7 @@ object DiagnosticsInterpreter {
             OperatingState.EV_DRIVE -> DiagnosticFinding(
                 id          = "ev_drive_state",
                 title       = "Running on electric drive",
-                description = "Engine is off while the vehicle is moving — ICE-specific diagnostics (fuel trim, O2 sensors, fuel loop) are paused until the engine restarts.",
+                description = "Engine is off while the vehicle is moving — ICE-specific diagnostics (fuel trim, O2 sensors, fuel loop, EGR) are paused until the engine restarts.",
                 severity    = FindingSeverity.INFO,
                 confidence  = FindingConfidence.MEDIUM,
                 evidence    = evidence,
@@ -1275,6 +1275,9 @@ object DiagnosticsInterpreter {
     }
 
     private fun egrErrorFinding(state: VehicleState): RuleResult {
+        // EGR feedback is only meaningful while exhaust gas is flowing. Hybrid vehicles can
+        // keep reporting the last commanded/error values while driving with the engine off.
+        if (!state.engineOn) return RuleResult.NONE
         val commanded = state.egrPct ?: return RuleResult.NONE
         val error = state.egrErrorPct ?: return RuleResult.NONE
         if (commanded < EGR_COMMANDED_MIN_PCT) return RuleResult.NONE
@@ -1372,7 +1375,7 @@ object DiagnosticsInterpreter {
     ): List<String> {
         val out = mutableListOf<String>()
         val evDriveDetected = recentStates.any { opStateOf(it) == OperatingState.EV_DRIVE }
-        if (evDriveDetected)             out += "Hybrid electric drive detected — fuel trim, O2, and thermostat rules paused during engine-off periods"
+        if (evDriveDetected)             out += "Hybrid electric drive detected — fuel trim, O2, EGR, and thermostat rules paused during engine-off periods"
         if (state.rpm == null)           out += "RPM signal not fresh"
         if (state.coolantTempC == null)  out += "Coolant temperature not fresh"
         if (state.stftBank1Pct == null)  out += "Fuel trim data not available"
