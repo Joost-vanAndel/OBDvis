@@ -8,12 +8,12 @@ import androidx.compose.foundation.layout.*
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bluetooth
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.ui.Alignment
+import androidx.compose.runtime.*
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.text.style.TextAlign
 import androidx.compose.ui.unit.dp
-import com.obdvis.android.ui.theme.OBDvisTheme
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
+import com.obdvis.android.ui.theme.*
 import com.obdvis.android.ui.theme.SubText
 
 /**
@@ -39,41 +39,29 @@ val requiredPermissions: Array<String> =
 
 @Composable
 fun PermissionScreen(onPermissionsGranted: () -> Unit) {
+    var permissionDenied by remember { mutableStateOf(false) }
     val launcher = rememberLauncherForActivityResult(
         contract = ActivityResultContracts.RequestMultiplePermissions(),
     ) { results ->
-        if (results.values.all { it }) onPermissionsGranted()
+        if (results.values.all { it }) onPermissionsGranted() else permissionDenied = true
     }
 
     OBDvisTheme {
-        Box(
-            modifier = Modifier.fillMaxSize(),
-            contentAlignment = Alignment.Center,
-        ) {
-            Column(
-                horizontalAlignment = Alignment.CenterHorizontally,
-                verticalArrangement = Arrangement.spacedBy(16.dp),
-                modifier = Modifier.padding(32.dp),
-            ) {
-                Icon(
-                    Icons.Default.Bluetooth,
-                    contentDescription = null,
-                    tint = MaterialTheme.colorScheme.primary,
-                    modifier = Modifier.size(48.dp),
-                )
-                Text(
-                    "Bluetooth Permission Required",
-                    style = MaterialTheme.typography.titleMedium,
-                )
-                Text(
-                    "OBDvis needs Bluetooth access to connect to your ELM327 adapter.",
-                    style = MaterialTheme.typography.bodyMedium,
-                    color = SubText,
-                    textAlign = TextAlign.Center,
-                )
-                Button(onClick = { launcher.launch(requiredPermissions) }) {
-                    Text("Grant Permission")
-                }
+        Column(Modifier.fillMaxSize().verticalScroll(rememberScrollState()).padding(AppSpace.lg),
+            verticalArrangement = Arrangement.spacedBy(AppSpace.lg)) {
+            Text("OBDvis", style = MaterialTheme.typography.titleMedium)
+            Spacer(Modifier.height(AppSpace.xl))
+            Icon(Icons.Default.Bluetooth, null, tint = Primary, modifier = Modifier.size(40.dp))
+            Text("Connect to your adapter", style = MaterialTheme.typography.headlineMedium)
+            Text("OBDvis needs Bluetooth access to connect to your ELM327 adapter.",
+                style = MaterialTheme.typography.bodyLarge, color = SubText)
+            if (permissionDenied) {
+                Text("Permission was not granted. Try again, or enable permissions for OBDvis in Android Settings.",
+                    style = MaterialTheme.typography.bodyMedium, color = Warning)
+            }
+            Button(shape = MaterialTheme.shapes.small, onClick = { launcher.launch(requiredPermissions) },
+                modifier = Modifier.fillMaxWidth().heightIn(min = AppSpace.touch)) {
+                Text("Grant permissions", maxLines = 1)
             }
         }
     }

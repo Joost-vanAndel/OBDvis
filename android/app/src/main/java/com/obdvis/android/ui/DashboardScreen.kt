@@ -3,14 +3,7 @@ package com.obdvis.android.ui
 import android.content.res.Configuration
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
-import androidx.compose.foundation.horizontalScroll
 import androidx.compose.foundation.layout.*
-import androidx.compose.foundation.rememberScrollState
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.FiberManualRecord
-import androidx.compose.material.icons.filled.Info
-import androidx.compose.material.icons.filled.Settings
-import androidx.compose.material.icons.filled.StopCircle
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.DisposableEffect
@@ -19,20 +12,19 @@ import androidx.compose.runtime.getValue
 import androidx.compose.runtime.mutableStateOf
 import androidx.compose.runtime.remember
 import androidx.compose.runtime.setValue
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.platform.LocalConfiguration
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.platform.LocalView
 import android.view.WindowManager
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import com.obdvis.android.domain.PidRegistry
 import com.obdvis.android.domain.health.DtcScreenState
 import com.obdvis.android.domain.health.FindingSeverity
 import com.obdvis.android.domain.health.FindingStatus
 import com.obdvis.android.domain.model.ConnectionState
+import com.obdvis.android.ui.components.SessionHeader
+import com.obdvis.android.ui.components.DashboardTabs
 import com.obdvis.android.ui.components.LiveLineChart
 import com.obdvis.android.ui.components.SensorSidebar
 import com.obdvis.android.ui.dtc.DtcScreen
@@ -111,118 +103,37 @@ fun DashboardScreen(viewModel: MainViewModel) {
                 .fillMaxSize()
                 .background(Background),
         ) {
-            // ── Status bar ────────────────────────────────────────────────────
-            Surface(color = Surface, tonalElevation = 0.dp) {
-                Column {
-                    // Row 1: title + connection info + action icons
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(start = 16.dp, end = 4.dp, top = 10.dp, bottom = 4.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    ) {
-                        Text("OBDvis", style = MaterialTheme.typography.titleMedium)
-
-                        Icon(
-                            Icons.Default.FiberManualRecord,
-                            contentDescription = null,
-                            tint = Color(0xFF4CD97B),
-                            modifier = Modifier.size(10.dp),
-                        )
-
-                        val deviceName = (connectionState as? ConnectionState.Connected)?.deviceName ?: ""
-                        Text(
-                            deviceName,
-                            style = MaterialTheme.typography.bodySmall,
-                            color = SubText,
-                            maxLines = 1,
-                            overflow = TextOverflow.Ellipsis,
-                            softWrap = false,
-                            modifier = Modifier.weight(1f),
-                        )
-
-                        IconButton(onClick = { showAbout = true }) {
-                            Icon(
-                                Icons.Default.Info,
-                                contentDescription = "About",
-                                tint = SubText,
-                            )
+            Column {
+                SessionHeader(
+                    deviceName = (connectionState as? ConnectionState.Connected)?.deviceName ?: "",
+                    driveEndDetected = driveEndDetected,
+                    onAbout = { showAbout = true }, onSettings = { showSettings = true },
+                    onEndDrive = viewModel::disconnect,
+                )
+                DashboardTabs(
+                    selected = when {
+                        showOverviewTab -> ActiveTab.OVERVIEW
+                        showHealthTab -> ActiveTab.HEALTH
+                        showDtcTab -> ActiveTab.DTC
+                        else -> ActiveTab.LIVE
+                    },
+                    findingCount = activeFindingCount,
+                    dtcCount = dtcCount,
+                    onSelect = { tab ->
+                        when (tab) {
+                            ActiveTab.HEALTH -> navigateToHealth()
+                            ActiveTab.DTC -> navigateToDtcs()
+                            else -> {
+                                showOverviewTab = tab == ActiveTab.OVERVIEW
+                                showHealthTab = false
+                                showDtcTab = false
+                                viewModel.setActiveTab(tab)
+                            }
                         }
-
-                        IconButton(onClick = { showSettings = true }) {
-                            Icon(
-                                Icons.Default.Settings,
-                                contentDescription = "Settings",
-                                tint = SubText,
-                            )
-                        }
-
-                        IconButton(onClick = viewModel::disconnect) {
-                            Icon(
-                                Icons.Default.StopCircle,
-                                contentDescription = if (driveEndDetected) "End drive" else "Disconnect",
-                                tint = if (driveEndDetected) Color(0xFFFFB74D) else SubText,
-                            )
-                        }
-                    }
-
-                    // Row 2: tab chips + context-sensitive chips, horizontally scrollable
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .horizontalScroll(rememberScrollState())
-                            .padding(start = 12.dp, end = 12.dp, bottom = 8.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.spacedBy(6.dp),
-                    ) {
-                        FilterChip(
-                            selected = showOverviewTab,
-                            onClick = {
-                                showOverviewTab = true; showHealthTab = false; showDtcTab = false
-                                viewModel.setActiveTab(ActiveTab.OVERVIEW)
-                            },
-                            label = { Text("Overview", style = MaterialTheme.typography.labelSmall) },
-                            modifier = Modifier.height(28.dp),
-                        )
-
-                        FilterChip(
-                            selected = !showOverviewTab && !showHealthTab && !showDtcTab,
-                            onClick = {
-                                showOverviewTab = false; showHealthTab = false; showDtcTab = false
-                                viewModel.setActiveTab(ActiveTab.LIVE)
-                            },
-                            label = { Text("Live", style = MaterialTheme.typography.labelSmall) },
-                            modifier = Modifier.height(28.dp),
-                        )
-
-                        BadgedBox(badge = {
-                            if (activeFindingCount > 0) Badge { Text("$activeFindingCount") }
-                        }) {
-                            FilterChip(
-                                selected = showHealthTab,
-                                onClick = { navigateToHealth() },
-                                label = { Text("Health", style = MaterialTheme.typography.labelSmall) },
-                                modifier = Modifier.height(28.dp),
-                            )
-                        }
-
-                        BadgedBox(badge = {
-                            if (dtcCount > 0) Badge { Text("$dtcCount") }
-                        }) {
-                            FilterChip(
-                                selected = showDtcTab,
-                                onClick = { navigateToDtcs() },
-                                label = { Text("DTCs", style = MaterialTheme.typography.labelSmall) },
-                                modifier = Modifier.height(28.dp),
-                            )
-                        }
-
-                    }
-                }
+                    },
+                )
+                HorizontalDivider(color = Border)
             }
-
-            HorizontalDivider(color = Border, thickness = 0.5.dp)
 
             // ── Main content — adaptive layout ────────────────────────────────
             if (isPortrait) {
@@ -298,7 +209,7 @@ fun DashboardScreen(viewModel: MainViewModel) {
                         canExportCsv = chartData.isNotEmpty(),
                         modifier = Modifier
                             .fillMaxWidth()
-                            .heightIn(max = 220.dp),
+                            .heightIn(max = 260.dp),
                     )
                 }
             } else {
@@ -317,7 +228,7 @@ fun DashboardScreen(viewModel: MainViewModel) {
                             onExportCsv = { exportCsv("obd_session.csv") },
                             canExportCsv = chartData.isNotEmpty(),
                             modifier = Modifier
-                                .width(200.dp)
+                                .width(240.dp)
                                 .fillMaxHeight(),
                         )
 

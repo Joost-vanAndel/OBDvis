@@ -1,11 +1,8 @@
 package com.obdvis.android.ui.health
 
-import androidx.compose.animation.AnimatedVisibility
-import androidx.compose.animation.expandVertically
-import androidx.compose.animation.fadeIn
-import androidx.compose.animation.fadeOut
-import androidx.compose.animation.shrinkVertically
-import androidx.compose.animation.core.tween
+import com.obdvis.android.ui.components.NavigationRow
+import androidx.compose.ui.platform.LocalConfiguration
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
 import androidx.compose.foundation.clickable
@@ -18,7 +15,6 @@ import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.CheckCircle
 import androidx.compose.material.icons.filled.KeyboardArrowDown
-import androidx.compose.material.icons.filled.KeyboardArrowRight
 import androidx.compose.material.icons.filled.KeyboardArrowUp
 import androidx.compose.material.icons.filled.Pause
 import androidx.compose.material.icons.filled.PlayArrow
@@ -39,14 +35,11 @@ import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.obdvis.android.domain.health.*
 import com.obdvis.android.ui.theme.*
-import java.text.SimpleDateFormat
-import java.util.Date
-import java.util.Locale
 
-private val MonitorComplete    = Color(0xFF4CD97B)
-private val MonitorIncomplete  = Color(0xFFFF9F43)
-private val MonitorUnsupported = Color(0xFF444444)
-private val AllClearGreen      = Color(0xFF4CD97B)
+private val MonitorComplete    = Success
+private val MonitorIncomplete  = Warning
+private val MonitorUnsupported = DimText
+private val AllClearGreen      = Success
 
 @Composable
 fun VehicleHealthScreen(
@@ -97,23 +90,15 @@ fun VehicleHealthScreen(
 
 @Composable
 private fun AutoUpdateBar(enabled: Boolean, onToggle: () -> Unit) {
-    Row(
-        modifier = Modifier.fillMaxWidth(),
-        verticalAlignment = Alignment.CenterVertically,
-    ) {
-        Text(
-            if (enabled) "Live" else "Paused",
-            style = MaterialTheme.typography.labelSmall,
-            color = if (enabled) Primary else DimText,
-            modifier = Modifier.weight(1f).padding(vertical = 4.dp),
-        )
-        IconButton(onClick = onToggle, modifier = Modifier.size(32.dp)) {
-            Icon(
-                imageVector = if (enabled) Icons.Default.Pause else Icons.Default.PlayArrow,
-                contentDescription = if (enabled) "Pause" else "Resume",
-                tint = if (enabled) Primary else SubText,
-                modifier = Modifier.size(18.dp),
-            )
+    Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically) {
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(AppSpace.xxs)) {
+            Text("Vehicle health", style = MaterialTheme.typography.titleMedium)
+            Text(if (enabled) "Updating live" else "Updates paused", style = MaterialTheme.typography.bodySmall, color = SubText)
+        }
+        TextButton(onClick = onToggle) {
+            Icon(if (enabled) Icons.Default.Pause else Icons.Default.PlayArrow, null, Modifier.size(18.dp))
+            Spacer(Modifier.width(AppSpace.xxs))
+            Text(if (enabled) "Pause" else "Resume", maxLines = 1)
         }
     }
 }
@@ -145,7 +130,7 @@ private fun HealthStatusHeader(
 
     Surface(
         color = Surface,
-        shape = RoundedCornerShape(8.dp),
+        shape = MaterialTheme.shapes.medium,
         modifier = Modifier.fillMaxWidth(),
     ) {
         Column(modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp)) {
@@ -203,27 +188,14 @@ private fun ContinuousFindingsList(
     onOpenDtcs: () -> Unit,
 ) {
     val issues = remember(activeFindings) {
-        activeFindings.values
-            .filter { it.finding.severity != FindingSeverity.INFO }
+        activeFindings.values.filter { it.finding.severity != FindingSeverity.INFO }
             .sortedWith(compareByDescending<FindingRecord> { it.peakSeverity.ordinal }.thenBy { it.firstSeenMs })
     }
-
-    Column(verticalArrangement = Arrangement.spacedBy(8.dp)) {
+    Column(verticalArrangement = Arrangement.spacedBy(AppSpace.sm)) {
         issues.forEach { record ->
             key(record.finding.id) {
-                var visible by remember { mutableStateOf(false) }
-                LaunchedEffect(Unit) { visible = true }
-                AnimatedVisibility(
-                    visible = visible,
-                    enter = fadeIn(tween(250)) + expandVertically(tween(250)),
-                    exit = fadeOut(tween(400)) + shrinkVertically(tween(400)),
-                ) {
-                    if (record.status == FindingStatus.FADING) {
-                        ResolvedFindingCard(record)
-                    } else {
-                        FindingCard(record, onOpenDtcs)
-                    }
-                }
+                if (record.status == FindingStatus.FADING) ResolvedFindingCard(record)
+                else FindingCard(record, onOpenDtcs)
             }
         }
     }
@@ -242,13 +214,13 @@ private fun FindingCard(record: FindingRecord, onOpenDtcs: () -> Unit) {
     }
     Surface(
         color = Surface,
-        shape = RoundedCornerShape(8.dp),
+        shape = MaterialTheme.shapes.medium,
         modifier = Modifier
             .fillMaxWidth()
-            .border(0.5.dp, accentColor.copy(alpha = 0.4f), RoundedCornerShape(8.dp))
+            .border(1.dp, Border, MaterialTheme.shapes.medium)
             .then(navigationModifier),
     ) {
-        Column(modifier = Modifier.padding(12.dp)) {
+        Column(modifier = Modifier.padding(AppSpace.md)) {
             Row(
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -256,14 +228,18 @@ private fun FindingCard(record: FindingRecord, onOpenDtcs: () -> Unit) {
                 SeverityDot(accentColor)
                 Text(
                     record.finding.title,
-                    style = MaterialTheme.typography.labelMedium,
+                    style = MaterialTheme.typography.titleSmall,
                     color = OnSurface,
                     modifier = Modifier.weight(1f),
                 )
+            }
+            Spacer(Modifier.height(AppSpace.xs))
+            FlowRow(horizontalArrangement = Arrangement.spacedBy(AppSpace.sm), verticalArrangement = Arrangement.spacedBy(AppSpace.xxs)) {
+                Text(record.finding.severity.name.lowercase().replaceFirstChar { it.uppercase() } + " severity",
+                    style = MaterialTheme.typography.labelSmall, color = accentColor)
+                FindingLifecycleBadge(record)
                 ConfidenceBadge(record.finding.confidence)
             }
-            Spacer(Modifier.height(4.dp))
-            FindingLifecycleBadge(record)
             if (record.finding.description.isNotBlank()) {
                 Spacer(Modifier.height(6.dp))
                 Text(
@@ -274,10 +250,7 @@ private fun FindingCard(record: FindingRecord, onOpenDtcs: () -> Unit) {
             }
             if (record.finding.evidence.isNotEmpty()) {
                 Spacer(Modifier.height(8.dp))
-                FlowRow(
-                    horizontalArrangement = Arrangement.spacedBy(8.dp),
-                    verticalArrangement = Arrangement.spacedBy(6.dp),
-                ) {
+                Column(verticalArrangement = Arrangement.spacedBy(AppSpace.xxs)) {
                     record.finding.evidence.forEach { (label, value) -> EvidenceChip(label, value) }
                 }
             }
@@ -294,10 +267,9 @@ private fun ResolvedFindingCard(record: FindingRecord) {
 
     Surface(
         color = Surface,
-        shape = RoundedCornerShape(8.dp),
+        shape = MaterialTheme.shapes.medium,
         modifier = Modifier
-            .fillMaxWidth()
-            .alpha(0.45f),
+            .fillMaxWidth(),
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
@@ -338,13 +310,13 @@ private fun FindingLifecycleBadge(record: FindingRecord) {
         "Active ${mins}m"
     }
     Surface(
-        color = Color(0xFF888888).copy(alpha = 0.12f),
+        color = SubText.copy(alpha = 0.12f),
         shape = RoundedCornerShape(4.dp),
     ) {
         Text(
             durationLabel,
             style = MaterialTheme.typography.labelSmall,
-            color = Color(0xFF888888),
+            color = SubText,
             modifier = Modifier.padding(horizontal = 6.dp, vertical = 2.dp),
         )
     }
@@ -371,14 +343,7 @@ private fun ConfidenceBadge(confidence: FindingConfidence) {
 
 @Composable
 private fun EvidenceChip(label: String, value: String) {
-    Surface(color = SurfaceVar, shape = RoundedCornerShape(4.dp)) {
-        Text(
-            "$label: $value",
-            style = MaterialTheme.typography.labelSmall,
-            color = SubText,
-            modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
-        )
-    }
+    Text("$label: $value", style = MaterialTheme.typography.bodySmall, color = SubText)
 }
 
 // ── Data coverage ──────────────────────────────────────────────────────────────
@@ -389,19 +354,20 @@ private fun DataLimitationsCard(limitations: List<String>) {
     var expanded by remember { mutableStateOf(false) }
     Surface(
         color = Surface,
-        shape = RoundedCornerShape(8.dp),
+        shape = MaterialTheme.shapes.medium,
         modifier = Modifier.fillMaxWidth(),
     ) {
         Column {
             Row(
                 modifier = Modifier
-                    .clickable { expanded = !expanded }
+                    .clickable(onClickLabel = if (expanded) "Collapse" else "Expand") { expanded = !expanded }
+                    .heightIn(min = AppSpace.touch)
                     .padding(horizontal = 12.dp, vertical = 9.dp),
                 verticalAlignment = Alignment.CenterVertically,
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
             ) {
                 Text(
-                    "DATA COVERAGE",
+                    "Data coverage",
                     style = MaterialTheme.typography.labelSmall,
                     color = DimText,
                     modifier = Modifier.weight(1f),
@@ -418,7 +384,7 @@ private fun DataLimitationsCard(limitations: List<String>) {
                     modifier = Modifier.size(16.dp),
                 )
             }
-            AnimatedVisibility(visible = expanded) {
+            if (expanded) {
                 Column(
                     modifier = Modifier.padding(start = 12.dp, end = 12.dp, bottom = 10.dp),
                     verticalArrangement = Arrangement.spacedBy(4.dp),
@@ -439,17 +405,17 @@ private fun MonitorReadinessCard(statuses: List<MonitorStatus>?) {
     if (statuses == null) return
     Surface(
         color = Surface,
-        shape = RoundedCornerShape(8.dp),
+        shape = MaterialTheme.shapes.medium,
         modifier = Modifier.fillMaxWidth(),
     ) {
         Column(modifier = Modifier.padding(12.dp), verticalArrangement = Arrangement.spacedBy(2.dp)) {
             Text(
-                "READINESS MONITORS",
+                "Readiness monitors",
                 style = MaterialTheme.typography.labelSmall,
                 color = DimText,
                 modifier = Modifier.padding(bottom = 6.dp),
             )
-            statuses.chunked(2).forEach { row ->
+            statuses.chunked(if (LocalConfiguration.current.screenWidthDp >= 600 && LocalDensity.current.fontScale <= 1.3f) 2 else 1).forEach { row ->
                 Row(modifier = Modifier.fillMaxWidth()) {
                     row.forEachIndexed { col, status ->
                         MonitorRow(
@@ -459,7 +425,7 @@ private fun MonitorReadinessCard(statuses: List<MonitorStatus>?) {
                                 .padding(end = if (col == 0) 12.dp else 0.dp, start = if (col == 1) 12.dp else 0.dp),
                         )
                     }
-                    if (row.size == 1) Spacer(Modifier.weight(1f))
+
                 }
             }
         }
@@ -497,14 +463,15 @@ private fun DriveCycleGuideCard(incompleteMonitors: List<String>) {
     val steps = remember(incompleteMonitors) { driveCycleStepsFor(incompleteMonitors) }
     var expanded by remember { mutableStateOf(false) }
 
-    Surface(color = Surface, shape = RoundedCornerShape(8.dp), modifier = Modifier.fillMaxWidth()) {
+    Surface(color = Surface, shape = MaterialTheme.shapes.medium, modifier = Modifier.fillMaxWidth()) {
         Column {
             Row(
-                modifier = Modifier.fillMaxWidth().clickable { expanded = !expanded }.padding(12.dp),
+                modifier = Modifier.fillMaxWidth().clickable(onClickLabel = if (expanded) "Collapse" else "Expand") { expanded = !expanded }
+                    .heightIn(min = AppSpace.touch).padding(12.dp),
                 verticalAlignment = Alignment.CenterVertically,
             ) {
                 Text(
-                    "DRIVE CYCLE GUIDE",
+                    "Drive cycle guide",
                     style = MaterialTheme.typography.labelSmall,
                     color = DimText,
                     modifier = Modifier.weight(1f),
@@ -516,7 +483,7 @@ private fun DriveCycleGuideCard(incompleteMonitors: List<String>) {
                     modifier = Modifier.size(16.dp),
                 )
             }
-            AnimatedVisibility(visible = expanded) {
+            if (expanded) {
                 Column(
                     modifier = Modifier.padding(start = 12.dp, end = 12.dp, bottom = 12.dp),
                     verticalArrangement = Arrangement.spacedBy(12.dp),
@@ -575,32 +542,7 @@ private fun MonitorTag(name: String) {
 
 @Composable
 private fun FuelTrimDeepDiveCard(onOpen: () -> Unit) {
-    Surface(
-        color = Surface,
-        shape = RoundedCornerShape(8.dp),
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onOpen)
-            .border(0.5.dp, Primary.copy(alpha = 0.25f), RoundedCornerShape(8.dp)),
-    ) {
-        Row(
-            modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(10.dp),
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text("Fuel Trim Deep Dive", style = MaterialTheme.typography.labelMedium, color = OnSurface)
-                Spacer(Modifier.height(2.dp))
-                Text("STFT & LTFT trend chart with zone analysis", style = MaterialTheme.typography.bodySmall, color = SubText)
-            }
-            Icon(
-                imageVector = Icons.Default.KeyboardArrowRight,
-                contentDescription = "Open fuel trim deep dive",
-                tint = SubText,
-                modifier = Modifier.size(18.dp),
-            )
-        }
-    }
+    NavigationRow("Fuel trim deep dive", "STFT & LTFT trend chart with zone analysis", onOpen)
 }
 
 // ── Finding event log ──────────────────────────────────────────────────────────
@@ -614,12 +556,13 @@ private fun FindingEventLogSection(events: List<FindingEvent>) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .clickable { expanded = !expanded }
+                .clickable(onClickLabel = if (expanded) "Collapse" else "Expand") { expanded = !expanded }
+                    .heightIn(min = AppSpace.touch)
                 .padding(vertical = 4.dp),
             verticalAlignment = Alignment.CenterVertically,
         ) {
             Text(
-                "EVENT LOG",
+                "Event log",
                 style = MaterialTheme.typography.labelSmall,
                 color = DimText,
                 modifier = Modifier.weight(1f),
@@ -636,7 +579,7 @@ private fun FindingEventLogSection(events: List<FindingEvent>) {
                 modifier = Modifier.size(16.dp),
             )
         }
-        AnimatedVisibility(visible = expanded) {
+        if (expanded) {
             Column(verticalArrangement = Arrangement.spacedBy(4.dp)) {
                 events.take(40).forEach { event -> EventLogRow(event, now) }
             }
@@ -653,7 +596,7 @@ private fun EventLogRow(event: FindingEvent, now: Long) {
     }
     val (icon, title, color) = when (event) {
         is FindingEvent.Appeared -> Triple("→", event.finding.title, event.finding.severity.color())
-        is FindingEvent.Cleared -> Triple("–", event.title, Color(0xFF888888))
+        is FindingEvent.Cleared -> Triple("–", event.title, SubText)
         is FindingEvent.SeverityChanged -> Triple(
             if (event.finding.severity.ordinal > event.from.ordinal) "↑" else "↓",
             event.finding.title,
@@ -691,8 +634,8 @@ private fun tickingNow(): Long {
 // ── Color helpers ──────────────────────────────────────────────────────────────
 
 private fun FindingSeverity.color(): Color = when (this) {
-    FindingSeverity.INFO   -> Color(0xFF888888)
-    FindingSeverity.LOW    -> Color(0xFFF5D547)
-    FindingSeverity.MEDIUM -> Color(0xFFFF9F43)
-    FindingSeverity.HIGH   -> Color(0xFFCF6679)
+    FindingSeverity.INFO   -> SubText
+    FindingSeverity.LOW    -> Caution
+    FindingSeverity.MEDIUM -> Warning
+    FindingSeverity.HIGH   -> Danger
 }

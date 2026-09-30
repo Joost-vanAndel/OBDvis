@@ -1,6 +1,9 @@
 package com.obdvis.android.ui
 
+import com.obdvis.android.ui.components.AppHeader
 import androidx.activity.compose.BackHandler
+import androidx.compose.foundation.rememberScrollState
+import androidx.compose.foundation.verticalScroll
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.Arrangement
 import androidx.compose.foundation.layout.Column
@@ -14,13 +17,10 @@ import androidx.compose.foundation.layout.padding
 import androidx.compose.foundation.layout.size
 import androidx.compose.foundation.layout.width
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.automirrored.filled.OpenInNew
 import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
-import androidx.compose.material3.IconButton
 import androidx.compose.material3.MaterialTheme
-import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
 import androidx.compose.runtime.Composable
@@ -39,7 +39,6 @@ import com.obdvis.android.ui.theme.OBDvisTheme
 import com.obdvis.android.ui.theme.OnSurface
 import com.obdvis.android.ui.theme.Primary
 import com.obdvis.android.ui.theme.SubText
-import com.obdvis.android.ui.theme.Surface as AppSurface
 
 @Composable
 fun AboutScreen(onBack: () -> Unit) {
@@ -61,23 +60,12 @@ fun AboutScreen(onBack: () -> Unit) {
                 .fillMaxSize()
                 .background(Background),
         ) {
-            Surface(color = AppSurface, tonalElevation = 0.dp) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(start = 4.dp, end = 16.dp, top = 10.dp, bottom = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = SubText)
-                    }
-                    Text("About", style = MaterialTheme.typography.titleMedium, color = OnSurface)
-                }
-            }
+            AppHeader("About", onBack = onBack)
 
             Column(
                 modifier = Modifier
                     .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(24.dp),
             ) {
@@ -136,7 +124,8 @@ private fun AboutRow(label: String, value: String) {
         verticalAlignment = Alignment.CenterVertically,
     ) {
         Text(label, style = MaterialTheme.typography.bodySmall, color = SubText)
-        Text(value, style = MaterialTheme.typography.bodyMedium, color = OnSurface)
+        Text(value, style = MaterialTheme.typography.bodyMedium, color = OnSurface,
+            modifier = Modifier.weight(1f).padding(start = 16.dp), textAlign = androidx.compose.ui.text.style.TextAlign.End)
     }
 }
 

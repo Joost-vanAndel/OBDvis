@@ -1,17 +1,15 @@
 package com.obdvis.android.ui.health
 
+import com.obdvis.android.ui.components.AppHeader
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.border
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.remember
-import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.toArgb
@@ -34,10 +32,10 @@ import com.obdvis.android.ui.theme.*
 private val FUEL_TRIM_IDS = listOf("stft", "ltft", "stft2", "ltft2")
 private val fuelTrimPidDefs = FUEL_TRIM_IDS.mapNotNull { PidRegistry.byId[it] }
 
-private val ZoneNormal  = Color(0xFF4CD97B)
-private val ZoneCaution = Color(0xFFFF9F43)
-private val ZoneLean    = Color(0xFFCF6679)
-private val ZoneRich    = Color(0xFF5B8FFF)
+private val ZoneNormal  = Success
+private val ZoneCaution = Warning
+private val ZoneLean    = Danger
+private val ZoneRich    = Primary
 
 private fun String.isFuelTrimFinding() =
     startsWith("lean_") || startsWith("rich_") || startsWith("fuel_trim_") ||
@@ -74,30 +72,8 @@ fun FuelTrimDivePanel(
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
-        Row(verticalAlignment = Alignment.CenterVertically) {
-            IconButton(onClick = onClose, modifier = Modifier.size(36.dp)) {
-                Icon(
-                    imageVector = Icons.AutoMirrored.Filled.ArrowBack,
-                    contentDescription = "Close",
-                    tint = SubText,
-                    modifier = Modifier.size(20.dp),
-                )
-            }
-            Spacer(Modifier.width(4.dp))
-            Text("Fuel Trim Deep Dive", style = MaterialTheme.typography.titleSmall, color = OnSurface)
-            Spacer(Modifier.weight(1f))
-            Surface(
-                color = Primary.copy(alpha = 0.15f),
-                shape = RoundedCornerShape(4.dp),
-            ) {
-                Text(
-                    "Focused polling",
-                    style = MaterialTheme.typography.labelSmall,
-                    color = Primary,
-                    modifier = Modifier.padding(horizontal = 8.dp, vertical = 3.dp),
-                )
-            }
-        }
+        AppHeader("Fuel trim", onBack = onClose)
+        Text("STFT & LTFT · 60-second window", style = MaterialTheme.typography.bodySmall, color = SubText)
 
         FuelTrimChart(
             chartData = chartData,
@@ -227,7 +203,7 @@ private fun FuelTrimValueGrid(latestValues: Map<String, Float>) {
             modifier = Modifier.padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Text("CURRENT VALUES", style = MaterialTheme.typography.labelSmall, color = DimText)
+            Text("Current readings", style = MaterialTheme.typography.labelSmall, color = DimText)
             Row(
                 modifier = Modifier.fillMaxWidth(),
                 horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -264,13 +240,13 @@ private fun TrimValueCell(
         value < -5f    -> ZoneCaution to "Mild rich"
         else           -> ZoneNormal  to "Normal"
     }
-    Surface(color = SurfaceVar, shape = RoundedCornerShape(6.dp), modifier = modifier) {
+    Surface(color = Surface, shape = MaterialTheme.shapes.small, modifier = modifier) {
         Column(modifier = Modifier.padding(horizontal = 10.dp, vertical = 8.dp)) {
             Text(label, style = MaterialTheme.typography.labelSmall, color = DimText)
             Spacer(Modifier.height(4.dp))
             Text(
                 if (value != null) "%.1f%%".format(value) else "—",
-                style = MaterialTheme.typography.titleMedium,
+                style = AppType.reading,
                 color = valueColor,
             )
             Text(
@@ -298,7 +274,7 @@ private fun FuelTrimFindingsCard(findings: List<DiagnosticFinding>, latestValues
             modifier = Modifier.padding(12.dp),
             verticalArrangement = Arrangement.spacedBy(8.dp),
         ) {
-            Text("INTERPRETATION", style = MaterialTheme.typography.labelSmall, color = DimText)
+            Text("Interpretation", style = MaterialTheme.typography.labelSmall, color = DimText)
             findings.forEach { finding ->
                 Column(verticalArrangement = Arrangement.spacedBy(2.dp)) {
                     Text(

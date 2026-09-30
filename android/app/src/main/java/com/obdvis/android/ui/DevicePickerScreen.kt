@@ -1,3 +1,4 @@
+/* Hallmark · modern-minimal · grouped list · design-system: design.md */
 package com.obdvis.android.ui
 
 import androidx.compose.foundation.clickable
@@ -6,201 +7,116 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Bluetooth
-import androidx.compose.material.icons.filled.BluetoothSearching
 import androidx.compose.material.icons.filled.History
 import androidx.compose.material.icons.filled.PlayArrow
 import androidx.compose.material3.*
-import androidx.compose.runtime.Composable
-import androidx.compose.runtime.LaunchedEffect
-import androidx.compose.runtime.collectAsState
-import androidx.compose.runtime.getValue
+import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.platform.LocalContext
 import androidx.compose.ui.unit.dp
-import com.obdvis.android.domain.model.BluetoothDeviceInfo
+import androidx.compose.ui.window.Dialog
+import androidx.compose.ui.window.DialogProperties
 import com.obdvis.android.domain.model.ConnectionState
-import com.obdvis.android.ui.theme.Border
-import com.obdvis.android.ui.theme.OBDvisTheme
-import com.obdvis.android.ui.theme.SubText
+import com.obdvis.android.ui.components.AppHeader
+import com.obdvis.android.ui.components.SectionHeading
+import com.obdvis.android.ui.theme.*
+import com.obdvis.android.domain.model.BluetoothDeviceInfo
 
 @Composable
-fun DevicePickerScreen(
-    viewModel: MainViewModel,
-    historyCount: Int,
-    onOpenHistory: () -> Unit,
-) {
+fun DevicePickerScreen(viewModel: MainViewModel, historyCount: Int, onOpenHistory: () -> Unit) {
     val context = LocalContext.current
     val devices by viewModel.pairedDevices.collectAsState()
     val connectionState by viewModel.connectionState.collectAsState()
+    LaunchedEffect(Unit) { viewModel.loadPairedDevices(context) }
 
-    LaunchedEffect(Unit) {
-        viewModel.loadPairedDevices(context)
-    }
+    DevicePickerContent(devices, connectionState, historyCount, onOpenHistory,
+        viewModel::connect, viewModel::startDemo, viewModel::disconnect)
+}
 
+@Composable
+internal fun DevicePickerContent(
+    devices: List<BluetoothDeviceInfo>,
+    connectionState: ConnectionState,
+    historyCount: Int,
+    onOpenHistory: () -> Unit,
+    onConnect: (BluetoothDeviceInfo) -> Unit,
+    onDemo: () -> Unit,
+    onDismissError: () -> Unit,
+) {
+    val connecting = connectionState is ConnectionState.Connecting || connectionState is ConnectionState.Initializing
     OBDvisTheme {
-        Box(modifier = Modifier.fillMaxSize()) {
-            Column(modifier = Modifier.fillMaxSize().padding(bottom = 80.dp)) {
-                // Header
-                Surface(
-                    color = MaterialTheme.colorScheme.surface,
-                    tonalElevation = 0.dp,
-                ) {
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 20.dp, vertical = 14.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                    ) {
-                        Icon(
-                            Icons.Default.Bluetooth,
-                            contentDescription = null,
-                            tint = MaterialTheme.colorScheme.primary,
-                            modifier = Modifier.size(20.dp),
-                        )
-                        Spacer(Modifier.width(10.dp))
-                        Text(
-                            "OBDvis",
-                            style = MaterialTheme.typography.titleMedium,
-                            modifier = Modifier.weight(1f),
-                        )
-                        TextButton(onClick = onOpenHistory) {
-                            Icon(
-                                Icons.Default.History,
-                                contentDescription = null,
-                                modifier = Modifier.size(17.dp),
-                            )
-                            Spacer(Modifier.width(5.dp))
-                            Text(if (historyCount > 0) "History ($historyCount)" else "History")
+        Scaffold(
+            containerColor = Background,
+            topBar = {
+                AppHeader("OBDvis") {
+                    IconButton(onClick = onOpenHistory, enabled = !connecting) {
+                        Icon(Icons.Default.History, if (historyCount > 0) "History, $historyCount drives" else "History")
+                    }
+                }
+            },
+            bottomBar = {
+                Surface(color = Surface) {
+                    Column {
+                        HorizontalDivider(color = Border)
+                        Row(Modifier.fillMaxWidth().padding(AppSpace.md),
+                            verticalAlignment = Alignment.CenterVertically,
+                            horizontalArrangement = Arrangement.spacedBy(AppSpace.md)) {
+                            Text("No adapter? Explore demo mode.", style = MaterialTheme.typography.bodySmall,
+                                color = SubText, modifier = Modifier.weight(1f))
+                            OutlinedButton(shape = MaterialTheme.shapes.small, onClick = onDemo, enabled = !connecting) {
+                                Icon(Icons.Default.PlayArrow, null, Modifier.size(18.dp))
+                                Spacer(Modifier.width(AppSpace.xs))
+                                Text("Demo", maxLines = 1)
+                            }
                         }
                     }
                 }
-
-                HorizontalDivider(color = Border)
-
-                Column(modifier = Modifier.padding(24.dp)) {
-                    Text(
-                        "Select ELM327 Device",
-                        style = MaterialTheme.typography.titleSmall,
-                        color = SubText,
-                    )
-                    Spacer(Modifier.height(4.dp))
-                    Text(
-                        "Showing Bluetooth devices already paired to this phone. " +
-                            "Pair your ELM327 adapter in Android Settings first.",
-                        style = MaterialTheme.typography.bodySmall,
-                        color = SubText,
-                    )
+            },
+        ) { padding ->
+            LazyColumn(Modifier.fillMaxSize().padding(padding), contentPadding = PaddingValues(AppSpace.md),
+                verticalArrangement = Arrangement.spacedBy(AppSpace.md)) {
+                item {
+                    Column(Modifier.padding(vertical = AppSpace.md), verticalArrangement = Arrangement.spacedBy(AppSpace.sm)) {
+                        Text("Connect your vehicle", style = MaterialTheme.typography.headlineMedium)
+                        Text("Select your paired ELM327 Bluetooth adapter.", style = MaterialTheme.typography.bodyLarge, color = SubText)
+                        Text("Pair the adapter in Android Settings first. It will appear in the list below.",
+                            style = MaterialTheme.typography.bodySmall, color = DimText)
+                    }
                 }
-
+                if (connectionState is ConnectionState.Error) {
+                    item {
+                        Surface(color = DangerContainer, shape = MaterialTheme.shapes.medium) {
+                            Column(Modifier.fillMaxWidth().padding(AppSpace.md)) {
+                                Text("Connection failed", style = MaterialTheme.typography.titleSmall, color = Danger)
+                                Text((connectionState as ConnectionState.Error).message, color = OnSurface,
+                                    style = MaterialTheme.typography.bodyMedium)
+                                TextButton(onClick = onDismissError) { Text("Dismiss") }
+                            }
+                        }
+                    }
+                }
+                item { SectionHeading("Paired devices") }
                 if (devices.isEmpty()) {
-                    Box(
-                        modifier = Modifier.fillMaxSize(),
-                        contentAlignment = Alignment.Center,
-                    ) {
-                        Column(
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(8.dp),
-                        ) {
-                            Icon(
-                                Icons.Default.BluetoothSearching,
-                                contentDescription = null,
-                                tint = SubText,
-                                modifier = Modifier.size(40.dp),
-                            )
-                            Text("No paired devices found", color = SubText)
-                        }
-                    }
-                } else {
-                    LazyColumn {
-                        items(devices) { device ->
-                            DeviceRow(
-                                info = device,
-                                onClick = { viewModel.connect(device) },
-                            )
-                            HorizontalDivider(color = Border, thickness = 0.5.dp)
-                        }
+                    item {
+                        Text("No paired devices found", style = MaterialTheme.typography.bodyMedium, color = SubText,
+                            modifier = Modifier.padding(vertical = AppSpace.lg))
                     }
                 }
-            }
-
-            // Demo mode footer
-            Surface(
-                modifier = Modifier.align(Alignment.BottomCenter).fillMaxWidth(),
-                color = MaterialTheme.colorScheme.surface,
-                tonalElevation = 4.dp,
-            ) {
-                Column {
+                items(devices, key = { it.address }) { device ->
+                    DeviceRow(device, enabled = !connecting, onClick = { onConnect(device) })
                     HorizontalDivider(color = Border)
-                    Row(
-                        modifier = Modifier
-                            .fillMaxWidth()
-                            .padding(horizontal = 20.dp, vertical = 10.dp),
-                        verticalAlignment = Alignment.CenterVertically,
-                        horizontalArrangement = Arrangement.SpaceBetween,
-                    ) {
-                        Text(
-                            "No device? Try demo mode",
-                            style = MaterialTheme.typography.bodySmall,
-                            color = SubText,
-                        )
-                        OutlinedButton(
-                            onClick = { viewModel.startDemo() },
-                            contentPadding = PaddingValues(horizontal = 14.dp, vertical = 6.dp),
-                        ) {
-                            Icon(
-                                Icons.Default.PlayArrow,
-                                contentDescription = null,
-                                modifier = Modifier.size(16.dp),
-                            )
-                            Spacer(Modifier.width(6.dp))
-                            Text("Demo", style = MaterialTheme.typography.labelMedium)
-                        }
-                    }
                 }
             }
-
-            // Connecting overlay
-            if (connectionState is ConnectionState.Connecting ||
-                connectionState is ConnectionState.Initializing
-            ) {
-                Box(
-                    modifier = Modifier.fillMaxSize(),
-                    contentAlignment = Alignment.Center,
-                ) {
-                    Surface(
-                        color = MaterialTheme.colorScheme.surface.copy(alpha = 0.95f),
-                        shape = MaterialTheme.shapes.medium,
-                    ) {
-                        Column(
-                            modifier = Modifier.padding(32.dp),
-                            horizontalAlignment = Alignment.CenterHorizontally,
-                            verticalArrangement = Arrangement.spacedBy(16.dp),
-                        ) {
-                            CircularProgressIndicator(color = MaterialTheme.colorScheme.primary)
-                            Text(
-                                if (connectionState is ConnectionState.Initializing)
-                                    "Initializing ELM327…"
-                                else
-                                    "Connecting…"
-                            )
-                        }
+        }
+        if (connecting) {
+            Dialog(onDismissRequest = {}, properties = DialogProperties(dismissOnBackPress = false, dismissOnClickOutside = false)) {
+                Surface(shape = MaterialTheme.shapes.medium, color = Surface) {
+                    Column(Modifier.padding(AppSpace.lg), verticalArrangement = Arrangement.spacedBy(AppSpace.md)) {
+                        CircularProgressIndicator(Modifier.size(32.dp))
+                        Text(if (connectionState is ConnectionState.Initializing) "Initializing ELM327…" else "Connecting…",
+                            style = MaterialTheme.typography.titleSmall)
                     }
-                }
-            }
-
-            // Error snackbar area
-            if (connectionState is ConnectionState.Error) {
-                val msg = (connectionState as ConnectionState.Error).message
-                Snackbar(
-                    modifier = Modifier
-                        .align(Alignment.BottomCenter)
-                        .padding(16.dp),
-                    action = {
-                        TextButton(onClick = { viewModel.disconnect() }) { Text("Dismiss") }
-                    },
-                ) {
-                    Text(msg)
                 }
             }
         }
@@ -208,32 +124,14 @@ fun DevicePickerScreen(
 }
 
 @Composable
-private fun DeviceRow(info: BluetoothDeviceInfo, onClick: () -> Unit) {
-    Row(
-        modifier = Modifier
-            .fillMaxWidth()
-            .clickable(onClick = onClick)
-            .padding(horizontal = 24.dp, vertical = 14.dp),
-        verticalAlignment = Alignment.CenterVertically,
-        horizontalArrangement = Arrangement.spacedBy(14.dp),
-    ) {
-        Icon(
-            Icons.Default.Bluetooth,
-            contentDescription = null,
-            tint = MaterialTheme.colorScheme.primary,
-            modifier = Modifier.size(20.dp),
-        )
-        Column {
-            Text(
-                info.name,
-                style = MaterialTheme.typography.bodyMedium,
-                color = MaterialTheme.colorScheme.onSurface,
-            )
-            Text(
-                info.address,
-                style = MaterialTheme.typography.bodySmall,
-                color = SubText,
-            )
+private fun DeviceRow(info: BluetoothDeviceInfo, enabled: Boolean, onClick: () -> Unit) {
+    Row(Modifier.fillMaxWidth().heightIn(min = 80.dp).clickable(enabled = enabled, onClick = onClick)
+        .padding(vertical = AppSpace.md), verticalAlignment = Alignment.CenterVertically,
+        horizontalArrangement = Arrangement.spacedBy(AppSpace.md)) {
+        Icon(Icons.Default.Bluetooth, null, tint = Primary, modifier = Modifier.size(24.dp))
+        Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(AppSpace.xxs)) {
+            Text(info.name, style = MaterialTheme.typography.titleSmall, color = OnSurface)
+            Text(info.address, style = MaterialTheme.typography.bodySmall, color = SubText)
         }
     }
 }

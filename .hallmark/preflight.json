@@ -1,0 +1,10 @@
+{
+  "date": "2026-09-25",
+  "framework": "Jetpack Compose / Material 3 + MPAndroidChart",
+  "font": "native Android sans-serif",
+  "palette": "blue-tinted dark, Theme.kt",
+  "spacing": "predominantly 4 dp",
+  "motion": "native interactions; remove decorative finding entrance motion",
+  "scope": "phone app",
+  "approved": true
+}

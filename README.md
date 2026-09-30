@@ -13,6 +13,9 @@ Compose UI, Kotlin coroutines/StateFlow, and no third-party architecture framewo
 
 ## Screenshots
 
+See the [0.1.13 UI redesign previews and validation notes](docs/ui-redesign/README.md).
+The captures below show the earlier UI.
+
 | Overview | Live chart | Health | DTCs | Post-drive |
 |---|---|---|---|---|
 | <img src="screenshots/overview.jpg" alt="Overview screen with live gauges, G-force, health, and DTC status" width="180"> | <img src="screenshots/live-chart.jpg" alt="Live chart screen with normalized OBD-II sensor traces" width="180"> | <img src="screenshots/health.jpg" alt="Health screen with diagnostic findings and readiness monitors" width="180"> | <img src="screenshots/dtcs.jpg" alt="DTC screen with stored fault codes and clear-code controls" width="180"> | <img src="screenshots/post-drive.jpg" alt="Post-drive summary with health findings, operating states, and peak values" width="180"> |
@@ -30,7 +33,7 @@ Compose UI, Kotlin coroutines/StateFlow, and no third-party architecture framewo
   and clear-code confirmation.
 - Persistent finding history and a post-drive summary with occurrences, operating-state
   breakdown, and peak values.
-- Overview gauges for RPM, speed, coolant, voltage, vehicle state, and G-force.
+- Overview with prominent speed, an RPM arc, coolant and voltage readings, vehicle state, and G-force.
 - Live OBD-II gauges and charts with selectable PIDs, normalization, and CSV export.
 - Bluetooth ELM327 connection flow, a built-in demo mode, and read-only Android Auto views
   for key sensors and health findings.

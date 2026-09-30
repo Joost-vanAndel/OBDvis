@@ -1,0 +1,14 @@
+[
+  {
+    "date": "2026-09-25",
+    "scope": "app",
+    "macrostructure": "instrument workbench / report / grouped lists",
+    "theme": "OBDvis dark instrument panel",
+    "enrichment": "none",
+    "brief": "Shared native Compose redesign; approved system in design.md",
+    "completed": "2026-09-30",
+    "version": "0.1.13",
+    "validation": "164 unit tests; 78 native screenshot renders; lint: zero errors, six existing warnings",
+    "critique": "P5 H4 E4 S5 R5 V4"
+  }
+]

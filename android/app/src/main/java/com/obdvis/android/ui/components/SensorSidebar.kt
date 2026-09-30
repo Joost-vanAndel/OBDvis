@@ -1,7 +1,8 @@
 package com.obdvis.android.ui.components
 
 import androidx.compose.foundation.background
-import androidx.compose.foundation.clickable
+import androidx.compose.foundation.selection.toggleable
+import androidx.compose.ui.semantics.Role
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
@@ -10,6 +11,8 @@ import androidx.compose.material.icons.Icons
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.draw.clip
@@ -48,7 +51,7 @@ fun SensorSidebar(
                 horizontalArrangement = Arrangement.spacedBy(6.dp),
             ) {
                 Text(
-                    "SENSORS",
+                    "Sensors",
                     style = MaterialTheme.typography.labelSmall,
                     color = SubText,
                     maxLines = 1,
@@ -59,14 +62,14 @@ fun SensorSidebar(
                 FilterChip(
                     selected = normalizeChart,
                     onClick = onToggleNormalize,
-                    label = { Text("%", style = MaterialTheme.typography.labelSmall) },
-                    modifier = Modifier.height(28.dp),
+                    label = { Text("%", style = MaterialTheme.typography.labelLarge) },
+                    modifier = Modifier.heightIn(min = AppSpace.touch).semantics { contentDescription = "Normalize chart to percent" },
                 )
 
                 IconButton(
                     onClick = onExportCsv,
                     enabled = canExportCsv,
-                    modifier = Modifier.size(32.dp),
+                    modifier = Modifier.size(AppSpace.touch),
                 ) {
                     Icon(
                         Icons.Default.Download,
@@ -93,13 +96,13 @@ fun SensorSidebar(
                     onClick = onEnableAll,
                     contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp),
                 ) {
-                    Text("All", style = MaterialTheme.typography.labelSmall)
+                    Text("All", style = MaterialTheme.typography.labelMedium)
                 }
                 TextButton(
                     onClick = onDisableAll,
                     contentPadding = PaddingValues(horizontal = 6.dp, vertical = 2.dp),
                 ) {
-                    Text("None", style = MaterialTheme.typography.labelSmall)
+                    Text("None", style = MaterialTheme.typography.labelMedium)
                 }
             }
         }
@@ -107,7 +110,7 @@ fun SensorSidebar(
         HorizontalDivider(color = Border, thickness = 0.5.dp)
 
         LazyColumn(modifier = Modifier.fillMaxWidth()) {
-            items(pids) { pid ->
+            items(pids, key = { it.id }) { pid ->
                 SensorRow(
                     pid = pid,
                     enabled = pid in enabledPids,
@@ -129,7 +132,8 @@ private fun SensorRow(
     Row(
         modifier = Modifier
             .fillMaxWidth()
-            .clickable(onClick = onClick)
+            .toggleable(value = enabled, role = Role.Checkbox, onValueChange = { onClick() })
+            .heightIn(min = AppSpace.touch)
             .padding(horizontal = 12.dp, vertical = 7.dp),
         verticalAlignment = Alignment.CenterVertically,
         horizontalArrangement = Arrangement.spacedBy(8.dp),
@@ -156,11 +160,11 @@ private fun SensorRow(
         )
 
         // Current value
-        if (latestValue != null && enabled) {
+        if (enabled) {
             Text(
-                "%.1f".format(latestValue),
-                style = MaterialTheme.typography.bodySmall,
-                color = SubText,
+                latestValue?.let { "%.1f".format(it) } ?: "—",
+                style = AppType.numeric.copy(fontSize = MaterialTheme.typography.bodySmall.fontSize),
+                color = OnSurface,
             )
             Text(
                 pid.unit,

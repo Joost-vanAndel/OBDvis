@@ -2,18 +2,19 @@ package com.obdvis.android.ui.overview
 
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
-import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.ArrowForward
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.runtime.LaunchedEffect
 import androidx.compose.runtime.remember
+import androidx.compose.ui.platform.LocalDensity
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
+import com.obdvis.android.ui.components.NavigationRow
+import com.obdvis.android.ui.components.SectionHeading
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
@@ -21,7 +22,6 @@ import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
-import androidx.compose.ui.text.font.FontWeight
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.ExperimentalFoundationApi
@@ -47,104 +47,87 @@ fun OverviewScreen(
     onNavigateToDtcs: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val speed    = latestValues["speed"]    ?: 0f
-    val rpm      = latestValues["rpm"]      ?: 0f
-    val coolant  = latestValues["coolant"]
-    val battery  = latestValues["obd_voltage"] ?: latestValues["ecu_voltage"]
+    val speed = latestValues["speed"]
+    val rpm = latestValues["rpm"]
+    val coolant = latestValues["coolant"]
+    val battery = latestValues["obd_voltage"] ?: latestValues["ecu_voltage"]
     val throttle = latestValues["throttle"]
     val speedEntries = chartData["speed"] ?: emptyList()
-    val (lateralG, longitudinalG) = gForce
-
     val drivingState = healthState.summaryOrNull()?.operatingState
+    val largeText = LocalDensity.current.fontScale > 1.3f
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .verticalScroll(rememberScrollState())
-            .padding(16.dp),
-        verticalArrangement = Arrangement.spacedBy(12.dp),
-    ) {
-        // ── Gauges ────────────────────────────────────────────────────────────
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
+    BoxWithConstraints(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
+        val wide = maxWidth >= 600.dp && !largeText
+        Column(
+            modifier = Modifier.widthIn(max = 920.dp).fillMaxWidth()
+                .verticalScroll(rememberScrollState()).padding(AppSpace.md),
+            verticalArrangement = Arrangement.spacedBy(AppSpace.lg),
         ) {
-            ArcGauge(
-                value      = speed,
-                min        = 0f,
-                max        = 250f,
-                unit       = "km/h",
-                label      = "SPEED",
-                arcColor   = Color(0xFFF87C52),
-                modifier   = Modifier.weight(1f).aspectRatio(1f),
-            )
-            ArcGauge(
-                value        = rpm,
-                min          = 0f,
-                max          = 8000f,
-                unit         = "rpm",
-                label        = "ENGINE",
-                arcColor     = Color(0xFF4C9EFF),
-                redlineFrom  = 6000f,
-                modifier     = Modifier.weight(1f).aspectRatio(1f),
-            )
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(AppSpace.xs)) {
+                Text("Overview", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
+                if (drivingState != null) DrivingStateChip(drivingState)
+            }
+
+            if (largeText) {
+                SpeedReading(speed)
+                ArcGauge(rpm, 0f, 8000f, "rpm", "Engine speed", EngineSignal,
+                    redlineFrom = 6000f, modifier = Modifier.fillMaxWidth().height(240.dp))
+            } else {
+                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                    horizontalArrangement = Arrangement.spacedBy(AppSpace.md)) {
+                    SpeedReading(speed, Modifier.weight(1.2f))
+                    ArcGauge(rpm, 0f, 8000f, "rpm", "Engine speed", EngineSignal,
+                        redlineFrom = 6000f,
+                        modifier = Modifier.weight(1f).height(176.dp))
+                }
+            }
+
+            HorizontalDivider(color = Border)
+            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(AppSpace.md)) {
+                StatCard("Coolant", coolant?.let { "%.0f °C".format(it) } ?: "—", coolantColor(coolant), Modifier.weight(1f))
+                StatCard("Battery", battery?.let { "%.1f V".format(it) } ?: "—", batteryColor(battery), Modifier.weight(1f))
+            }
+
+            Column(verticalArrangement = Arrangement.spacedBy(AppSpace.xs)) {
+                SectionHeading("Vehicle health")
+                if (wide) {
+                    Row(horizontalArrangement = Arrangement.spacedBy(AppSpace.sm)) {
+                        HealthSummaryCard(healthState, activeFindings, onNavigateToHealth, Modifier.weight(1f))
+                        DtcSummaryCard(dtcScreenState, onNavigateToDtcs, Modifier.weight(1f))
+                    }
+                } else {
+                    HealthSummaryCard(healthState, activeFindings, onNavigateToHealth)
+                    DtcSummaryCard(dtcScreenState, onNavigateToDtcs)
+                }
+            }
+
+            Column(verticalArrangement = Arrangement.spacedBy(AppSpace.md)) {
+                SectionHeading("Motion & response")
+                if (throttle != null) ThrottleBar(throttle)
+                if (speedEntries.size >= 3) {
+                    Text("Recent speed", style = MaterialTheme.typography.labelSmall, color = SubText)
+                    SpeedSparkline(speedEntries.takeLast(60), Modifier.fillMaxWidth().height(48.dp))
+                }
+                GForceIndicator(
+                    lateralG = gForce.first, longitudinalG = gForce.second,
+                    peakGForce = peakGForce, onResetPeaks = onResetPeaks,
+                    modifier = Modifier.width(260.dp).height(168.dp).align(Alignment.CenterHorizontally),
+                )
+                TextButton(onClick = onResetPeaks, modifier = Modifier.align(Alignment.CenterHorizontally)) {
+                    Text("Reset G-force peaks")
+                }
+            }
         }
+    }
+}
 
-        // ── G-Force indicator ─────────────────────────────────────────────────
-        GForceIndicator(
-            lateralG      = lateralG,
-            longitudinalG = longitudinalG,
-            peakGForce    = peakGForce,
-            onResetPeaks  = onResetPeaks,
-            modifier      = Modifier.width(190.dp).height(130.dp).align(Alignment.CenterHorizontally),
-        )
-
-        // ── Throttle bar ──────────────────────────────────────────────────────
-        if (throttle != null) {
-            ThrottleBar(throttle = throttle)
-        }
-
-        // ── Speed sparkline ───────────────────────────────────────────────────
-        if (speedEntries.size >= 3) {
-            SpeedSparkline(
-                entries  = speedEntries.takeLast(60),
-                modifier = Modifier.fillMaxWidth().height(36.dp),
-            )
-        }
-
-        // ── Quick stats ───────────────────────────────────────────────────────
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            StatCard(
-                label    = "COOLANT",
-                value    = if (coolant != null) "%.0f °C".format(coolant) else "—",
-                dotColor = coolantColor(coolant),
-                modifier = Modifier.weight(1f),
-            )
-            StatCard(
-                label    = "BATTERY",
-                value    = if (battery != null) "%.1f V".format(battery) else "—",
-                dotColor = batteryColor(battery),
-                modifier = Modifier.weight(1f),
-            )
-        }
-
-        // ── Health summary ────────────────────────────────────────────────────
-        HealthSummaryCard(
-            healthState = healthState,
-            activeFindings = activeFindings,
-            onClick = onNavigateToHealth,
-        )
-
-        // ── DTC summary ───────────────────────────────────────────────────────
-        DtcSummaryCard(dtcScreenState = dtcScreenState, onClick = onNavigateToDtcs)
-
-        // ── Driving state chip ────────────────────────────────────────────────
-        if (drivingState != null) {
-            DrivingStateChip(state = drivingState)
-        }
+@Composable
+private fun SpeedReading(speed: Float?, modifier: Modifier = Modifier) {
+    Column(modifier, verticalArrangement = Arrangement.spacedBy(AppSpace.xxs)) {
+        Text("Speed", style = MaterialTheme.typography.labelLarge, color = SubText)
+        Text(speed?.let { "%.0f".format(it) } ?: "—", style = AppType.speed, color = OnSurface)
+        Text("km/h", style = MaterialTheme.typography.bodyMedium, color = SpeedSignal)
     }
 }
 
@@ -152,7 +135,7 @@ fun OverviewScreen(
 
 @Composable
 private fun ArcGauge(
-    value: Float,
+    value: Float?,
     min: Float,
     max: Float,
     unit: String,
@@ -164,11 +147,11 @@ private fun ArcGauge(
     // Arc geometry: 240° sweep centred at 12 o'clock (start=150°, end=30°)
     val startAngle  = 150f
     val totalSweep  = 240f
-    val redColor    = Color(0xFFCF6679)
-    val redZoneBg   = Color(0xFF3A1A1E)
+    val redColor    = Danger
+    val redZoneBg   = DangerContainer
 
     // Box lets us layer the arc canvas and Compose Text overlays
-    Box(modifier = modifier, contentAlignment = Alignment.Center) {
+    Box(modifier = modifier.semantics(mergeDescendants = true) {}, contentAlignment = Alignment.Center) {
 
         Canvas(modifier = Modifier.fillMaxSize()) {
             val w  = size.width
@@ -179,7 +162,7 @@ private fun ArcGauge(
             val r  = s * 0.38f
             val sw = r * 0.15f
 
-            val fraction    = ((value - min) / (max - min)).coerceIn(0f, 1f)
+            val fraction    = (((value ?: min) - min) / (max - min)).coerceIn(0f, 1f)
             val redFraction = ((redlineFrom - min) / (max - min)).coerceIn(0f, 1f)
 
             // ── Background track ────────────────────────────────────────────
@@ -208,7 +191,7 @@ private fun ArcGauge(
 
             // ── Value arc ───────────────────────────────────────────────────
             if (fraction > 0.005f) {
-                val inRedline = redlineFrom < max && value > redlineFrom
+                val inRedline = redlineFrom < max && (value ?: min) > redlineFrom
                 if (inRedline) {
                     drawArc(
                         color      = arcColor,
@@ -258,21 +241,20 @@ private fun ArcGauge(
             modifier = Modifier.offset(y = (-4).dp),
         ) {
             Text(
-                text       = "%.0f".format(value),
-                fontSize   = 28.sp,
-                fontWeight = FontWeight.Bold,
+                text       = value?.let { "%.0f".format(it) } ?: "—",
+                style = AppType.reading,
                 color      = OnSurface,
             )
             Text(
                 text  = unit,
-                fontSize = 11.sp,
+                fontSize = 12.sp,
                 color = SubText,
             )
         }
 
         Text(
             text     = label,
-            fontSize = 10.sp,
+            fontSize = 12.sp,
             color    = DimText,
             modifier = Modifier
                 .align(Alignment.BottomCenter)
@@ -289,10 +271,10 @@ private fun ThrottleBar(throttle: Float, modifier: Modifier = Modifier) {
         Row(
             modifier = Modifier
                 .fillMaxWidth()
-                .padding(horizontal = 2.dp),
+                .padding(horizontal = 0.dp),
             horizontalArrangement = Arrangement.SpaceBetween,
         ) {
-            Text("THROTTLE", style = MaterialTheme.typography.labelSmall, color = DimText)
+            Text("Throttle", style = MaterialTheme.typography.labelSmall, color = DimText)
             Text("%.0f%%".format(throttle), style = MaterialTheme.typography.labelSmall, color = SubText)
         }
         Spacer(Modifier.height(4.dp))
@@ -306,7 +288,7 @@ private fun ThrottleBar(throttle: Float, modifier: Modifier = Modifier) {
                 modifier = Modifier
                     .fillMaxWidth((throttle / 100f).coerceIn(0f, 1f))
                     .fillMaxHeight()
-                    .background(Color(0xFFF5D547), RoundedCornerShape(2.dp)),
+                    .background(Caution, RoundedCornerShape(2.dp)),
             )
         }
     }
@@ -316,7 +298,7 @@ private fun ThrottleBar(throttle: Float, modifier: Modifier = Modifier) {
 
 @Composable
 private fun SpeedSparkline(entries: List<Entry>, modifier: Modifier = Modifier) {
-    val speedColor = Color(0xFFF87C52)
+    val speedColor = SpeedSignal
     Canvas(modifier = modifier) {
         val w      = size.width
         val h      = size.height
@@ -355,12 +337,12 @@ private fun StatCard(
     modifier: Modifier = Modifier,
 ) {
     Surface(
-        color    = Surface,
-        shape    = RoundedCornerShape(8.dp),
-        modifier = modifier.border(0.5.dp, Border, RoundedCornerShape(8.dp)),
+        color    = Background,
+        shape    = MaterialTheme.shapes.medium,
+        modifier = modifier,
     ) {
         Column(
-            modifier = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
+            modifier = Modifier.padding(vertical = AppSpace.xxs),
             verticalArrangement = Arrangement.spacedBy(4.dp),
         ) {
             Text(label, style = MaterialTheme.typography.labelSmall, color = DimText)
@@ -373,7 +355,7 @@ private fun StatCard(
                         .size(8.dp)
                         .background(dotColor, RoundedCornerShape(4.dp))
                 )
-                Text(value, style = MaterialTheme.typography.titleSmall, color = OnSurface)
+                Text(value, style = AppType.reading, color = OnSurface)
             }
         }
     }
@@ -381,19 +363,19 @@ private fun StatCard(
 
 private fun coolantColor(temp: Float?): Color = when {
     temp == null -> SubText
-    temp < 60f   -> Color(0xFF4C9EFF)  // cold: blue
-    temp < 95f   -> Color(0xFF4CD97B)  // normal: green
-    temp < 110f  -> Color(0xFFF5D547)  // warm: yellow
-    else         -> Color(0xFFCF6679)  // hot: red
+    temp < 60f   -> EngineSignal  // cold: blue
+    temp < 95f   -> Success  // normal: green
+    temp < 110f  -> Caution  // warm: yellow
+    else         -> Danger  // hot: red
 }
 
 private fun batteryColor(v: Float?): Color = when {
     v == null  -> SubText
-    v < 11.5f  -> Color(0xFFCF6679)   // low battery: red
-    v < 12.0f  -> Color(0xFFF5D547)   // below-normal: yellow
-    v > 15.0f  -> Color(0xFFCF6679)   // overcharge: red
-    v > 14.8f  -> Color(0xFFF5D547)   // high: yellow
-    else       -> Color(0xFF4CD97B)   // normal: green
+    v < 11.5f  -> Danger   // low battery: red
+    v < 12.0f  -> Caution   // below-normal: yellow
+    v > 15.0f  -> Danger   // overcharge: red
+    v > 14.8f  -> Caution   // high: yellow
+    else       -> Success   // normal: green
 }
 
 // ── Health summary card ────────────────────────────────────────────────────────
@@ -405,57 +387,23 @@ private fun HealthSummaryCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val summary        = healthState.summaryOrNull()
-    val issues         = activeFindings.values.filter {
+    val issues = activeFindings.values.filter {
         it.status == FindingStatus.ACTIVE && it.finding.severity != FindingSeverity.INFO
     }
-    val worstSeverity  = issues.maxByOrNull { it.finding.severity.ordinal }?.finding?.severity
-    val borderColor    = when (worstSeverity) {
-        FindingSeverity.HIGH   -> Color(0xFFCF6679)
-        FindingSeverity.MEDIUM -> Color(0xFFFF9F43)
-        FindingSeverity.LOW    -> Color(0xFFF5D547)
-        else                   -> Border
+    val worst = issues.maxByOrNull { it.finding.severity.ordinal }?.finding?.severity
+    val detail = when {
+        healthState.summaryOrNull() == null -> "Waiting for analysis"
+        issues.isEmpty() -> "No issues found"
+        else -> "${issues.size} active issue${if (issues.size == 1) "" else "s"}"
     }
-
-    Surface(
-        color    = Surface,
-        shape    = RoundedCornerShape(8.dp),
-        modifier = modifier
-            .fillMaxWidth()
-            .border(0.5.dp, borderColor, RoundedCornerShape(8.dp))
-            .clickable(onClick = onClick),
-    ) {
-        Row(
-            modifier              = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
-            verticalAlignment     = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text("HEALTH", style = MaterialTheme.typography.labelSmall, color = DimText)
-                Spacer(Modifier.height(3.dp))
-                when {
-                    summary == null        -> Text("Not analysed",
-                        style = MaterialTheme.typography.bodyMedium, color = SubText)
-                    issues.isEmpty()       -> Text("No issues found",
-                        style = MaterialTheme.typography.bodyMedium, color = Color(0xFF4CD97B))
-                    else -> Text(
-                        "${issues.size} issue${if (issues.size == 1) "" else "s"}",
-                        style = MaterialTheme.typography.bodyMedium,
-                        color = OnSurface,
-                    )
-                }
-            }
-            Icon(
-                Icons.Default.ArrowForward,
-                contentDescription = "Go to Health",
-                tint               = SubText,
-                modifier           = Modifier.size(16.dp),
-            )
-        }
+    val color = when (worst) {
+        FindingSeverity.HIGH -> Danger
+        FindingSeverity.MEDIUM -> Warning
+        FindingSeverity.LOW -> Caution
+        else -> if (healthState.summaryOrNull() == null) SubText else Success
     }
+    NavigationRow("Health", detail, onClick, modifier, color)
 }
-
-// ── DTC summary card ───────────────────────────────────────────────────────────
 
 @Composable
 private fun DtcSummaryCard(
@@ -463,56 +411,20 @@ private fun DtcSummaryCard(
     onClick: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
-    val hasDtcs     = dtcScreenState is DtcScreenState.Loaded && !dtcScreenState.result.isEmpty
-    val borderColor = if (hasDtcs) Color(0xFFCF6679) else Border
-
-    Surface(
-        color    = Surface,
-        shape    = RoundedCornerShape(8.dp),
-        modifier = modifier
-            .fillMaxWidth()
-            .border(0.5.dp, borderColor, RoundedCornerShape(8.dp))
-            .clickable(onClick = onClick),
-    ) {
-        Row(
-            modifier              = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
-            verticalAlignment     = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(8.dp),
-        ) {
-            Column(modifier = Modifier.weight(1f)) {
-                Text("DTCs", style = MaterialTheme.typography.labelSmall, color = DimText)
-                Spacer(Modifier.height(3.dp))
-                when (val s = dtcScreenState) {
-                    is DtcScreenState.Idle     -> Text("Not read",
-                        style = MaterialTheme.typography.bodyMedium, color = SubText)
-                    is DtcScreenState.Reading  -> Text("Reading…",
-                        style = MaterialTheme.typography.bodyMedium, color = SubText)
-                    is DtcScreenState.Clearing -> Text("Clearing…",
-                        style = MaterialTheme.typography.bodyMedium, color = SubText)
-                    is DtcScreenState.Error    -> Text("Read error",
-                        style = MaterialTheme.typography.bodyMedium, color = Color(0xFFCF6679))
-                    is DtcScreenState.Loaded   -> {
-                        val r = s.result
-                        if (r.isEmpty) {
-                            Text("No codes", style = MaterialTheme.typography.bodyMedium, color = Color(0xFF4CD97B))
-                        } else {
-                            Text(
-                                "${r.stored.size} stored · ${r.pending.size} pending",
-                                style = MaterialTheme.typography.bodyMedium,
-                                color = Color(0xFFCF6679),
-                            )
-                        }
-                    }
-                }
-            }
-            Icon(
-                Icons.Default.ArrowForward,
-                contentDescription = "Go to DTCs",
-                tint               = SubText,
-                modifier           = Modifier.size(16.dp),
-            )
-        }
+    val detail = when (val state = dtcScreenState) {
+        DtcScreenState.Idle -> "Not read"
+        DtcScreenState.Reading -> "Reading…"
+        DtcScreenState.Clearing -> "Clearing…"
+        is DtcScreenState.Error -> "Read error"
+        is DtcScreenState.Loaded -> if (state.result.isEmpty) "No codes found"
+            else "${state.result.stored.size} stored · ${state.result.pending.size} pending"
     }
+    val color = when {
+        dtcScreenState is DtcScreenState.Error -> Danger
+        dtcScreenState is DtcScreenState.Loaded -> if (dtcScreenState.result.isEmpty) Success else Danger
+        else -> SubText
+    }
+    NavigationRow("Fault codes", detail, onClick, modifier, color)
 }
 
 // ── Driving state chip ─────────────────────────────────────────────────────────
@@ -520,12 +432,12 @@ private fun DtcSummaryCard(
 @Composable
 private fun DrivingStateChip(state: OperatingState, modifier: Modifier = Modifier) {
     val (bgColor, textColor) = when (state) {
-        OperatingState.COLD_START    -> Color(0xFF4C9EFF).copy(alpha = 0.15f) to Color(0xFF4C9EFF)
+        OperatingState.COLD_START    -> EngineSignal.copy(alpha = 0.15f) to EngineSignal
         OperatingState.WARM_IDLE     -> Border                                to SubText
-        OperatingState.CRUISE        -> Color(0xFF4CD97B).copy(alpha = 0.15f) to Color(0xFF4CD97B)
-        OperatingState.ACCELERATION  -> Color(0xFFF5D547).copy(alpha = 0.15f) to Color(0xFFF5D547)
-        OperatingState.DECELERATION  -> Color(0xFFFF9F43).copy(alpha = 0.15f) to Color(0xFFFF9F43)
-        OperatingState.EV_DRIVE      -> Color(0xFF00D2D3).copy(alpha = 0.15f) to Color(0xFF00D2D3)
+        OperatingState.CRUISE        -> Success.copy(alpha = 0.15f) to Success
+        OperatingState.ACCELERATION  -> Caution.copy(alpha = 0.15f) to Caution
+        OperatingState.DECELERATION  -> Warning.copy(alpha = 0.15f) to Warning
+        OperatingState.EV_DRIVE      -> ElectricSignal.copy(alpha = 0.15f) to ElectricSignal
         OperatingState.UNKNOWN       -> Border                                to SubText
     }
     Box(
@@ -552,9 +464,9 @@ private fun GForceIndicator(
 ) {
     val totalG = sqrt(lateralG * lateralG + longitudinalG * longitudinalG)
     val ballColor = when {
-        totalG < 0.3f -> Color(0xFF4CD97B)
-        totalG < 0.7f -> Color(0xFFF5D547)
-        else          -> Color(0xFFCF6679)
+        totalG < 0.3f -> Success
+        totalG < 0.7f -> Caution
+        else          -> Danger
     }
 
     val trail = remember { ArrayDeque<Pair<Float, Float>>(TRAIL_LENGTH + 1) }
@@ -563,14 +475,16 @@ private fun GForceIndicator(
         trail.addLast(lateralG to longitudinalG)
     }
 
-    val peakColor = SubText.copy(alpha = 0.75f)
-    val peakFontSize = 9.sp
+    val peakColor = SubText
+    val peakFontSize = 12.sp
 
     Box(
-        modifier = modifier.combinedClickable(onClick = {}, onLongClick = onResetPeaks),
+        modifier = modifier.semantics {
+            contentDescription = "G-force: lateral %.2f g, longitudinal %.2f g".format(lateralG, longitudinalG)
+        }.combinedClickable(onClick = {}, onLongClickLabel = "Reset G-force peaks", onLongClick = onResetPeaks),
         contentAlignment = Alignment.Center,
     ) {
-        Canvas(modifier = Modifier.size(106.dp)) {
+        Canvas(modifier = Modifier.size(128.dp)) {
             val s  = minOf(size.width, size.height)
             val cx = size.width  / 2f
             val cy = size.height / 2f
@@ -597,7 +511,7 @@ private fun GForceIndicator(
 
             // centre point
             drawCircle(Border.copy(alpha = 0.6f), r * 0.055f, Offset(cx, cy))
-            drawCircle(Color.White.copy(alpha = 0.85f), r * 0.028f, Offset(cx, cy))
+            drawCircle(OnSurface, r * 0.028f, Offset(cx, cy))
 
             // ghost trail — oldest first, fading toward newest
             trail.forEachIndexed { i, (tLat, tLon) ->

@@ -1,5 +1,13 @@
 package com.obdvis.android.ui
 
+import com.obdvis.android.ui.theme.Caution
+import com.obdvis.android.ui.theme.Danger
+import com.obdvis.android.ui.theme.Primary
+import com.obdvis.android.ui.theme.SubText
+import com.obdvis.android.ui.theme.Warning
+import com.obdvis.android.ui.components.AppHeader
+import androidx.compose.foundation.layout.FlowRow
+import androidx.compose.foundation.layout.ExperimentalLayoutApi
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.background
 import androidx.compose.foundation.border
@@ -19,14 +27,11 @@ import androidx.compose.foundation.lazy.LazyColumn
 import androidx.compose.foundation.lazy.items
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.DirectionsCar
 import androidx.compose.material3.AlertDialog
-import androidx.compose.material3.HorizontalDivider
 import androidx.compose.material3.Icon
 import androidx.compose.material3.IconButton
-import androidx.compose.material3.MaterialTheme
 import androidx.compose.material3.Surface
 import androidx.compose.material3.Text
 import androidx.compose.material3.TextButton
@@ -47,8 +52,6 @@ import com.obdvis.android.ui.theme.Background
 import com.obdvis.android.ui.theme.Border
 import com.obdvis.android.ui.theme.OBDvisTheme
 import com.obdvis.android.ui.theme.OnSurface
-import com.obdvis.android.ui.theme.Primary
-import com.obdvis.android.ui.theme.SubText
 import com.obdvis.android.ui.theme.SurfaceVar
 import java.text.DateFormat
 import java.util.Date
@@ -70,30 +73,10 @@ fun DriveHistoryScreen(
                 .fillMaxSize()
                 .background(Background),
         ) {
-            Row(
-                modifier = Modifier
-                    .fillMaxWidth()
-                    .padding(horizontal = 8.dp, vertical = 8.dp),
-                verticalAlignment = Alignment.CenterVertically,
-            ) {
-                IconButton(onClick = onBack) {
-                    Icon(
-                        Icons.AutoMirrored.Filled.ArrowBack,
-                        contentDescription = "Back",
-                        tint = OnSurface,
-                    )
-                }
-                Text(
-                    "Drive History",
-                    style = MaterialTheme.typography.titleMedium,
-                    color = OnSurface,
-                    modifier = Modifier.weight(1f),
-                )
-            }
-            HorizontalDivider(color = Border)
+            AppHeader("Drive history", onBack = onBack)
 
             if (drives.isEmpty()) {
-                Box(modifier = Modifier.fillMaxSize(), contentAlignment = Alignment.Center) {
+                Box(modifier = Modifier.fillMaxSize().padding(24.dp), contentAlignment = Alignment.Center) {
                     Column(
                         horizontalAlignment = Alignment.CenterHorizontally,
                         verticalArrangement = Arrangement.spacedBy(8.dp),
@@ -165,9 +148,9 @@ private fun HistoryStorageOverview(
     Surface(
         modifier = modifier
             .fillMaxWidth()
-            .border(1.dp, Border, RoundedCornerShape(10.dp)),
+            .border(1.dp, Border, RoundedCornerShape(12.dp)),
         color = SurfaceVar,
-        shape = RoundedCornerShape(10.dp),
+        shape = RoundedCornerShape(12.dp),
     ) {
         Row(
             modifier = Modifier.padding(horizontal = 14.dp, vertical = 12.dp),
@@ -176,9 +159,9 @@ private fun HistoryStorageOverview(
         ) {
             Column {
                 Text(
-                    "ON-DEVICE HISTORY",
+                    "Saved on this device",
                     color = SubText,
-                    fontSize = 11.sp,
+                    fontSize = 12.sp,
                     fontWeight = FontWeight.Medium,
                     letterSpacing = 0.8.sp,
                 )
@@ -196,12 +179,13 @@ private fun HistoryStorageOverview(
                     fontSize = 16.sp,
                     fontWeight = FontWeight.SemiBold,
                 )
-                Text("Storage used", color = SubText, fontSize = 11.sp)
+                Text("Storage used", color = SubText, fontSize = 12.sp)
             }
         }
     }
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun DriveHistoryRow(
     drive: SavedDrive,
@@ -228,10 +212,10 @@ private fun DriveHistoryRow(
     Surface(
         modifier = modifier
             .fillMaxWidth()
-            .border(1.dp, Border, RoundedCornerShape(10.dp))
+            .border(1.dp, Border, RoundedCornerShape(12.dp))
             .clickable(onClick = onOpen),
         color = SurfaceVar,
-        shape = RoundedCornerShape(10.dp),
+        shape = RoundedCornerShape(12.dp),
     ) {
         Row(
             modifier = Modifier.padding(start = 14.dp, top = 12.dp, bottom = 12.dp, end = 4.dp),
@@ -249,21 +233,21 @@ private fun DriveHistoryRow(
                 verticalArrangement = Arrangement.spacedBy(4.dp),
             ) {
                 Text(dateText, color = OnSurface, fontWeight = FontWeight.Medium, fontSize = 14.sp)
-                Row(horizontalArrangement = Arrangement.spacedBy(10.dp)) {
+                FlowRow(horizontalArrangement = Arrangement.spacedBy(12.dp), verticalArrangement = Arrangement.spacedBy(4.dp)) {
                     Text(durationText, color = SubText, fontSize = 12.sp)
                     Text(formatFileSize(drive.fileSizeBytes), color = SubText, fontSize = 12.sp)
                     summary.peakSpeedKph?.let {
                         Text("%.0f km/h peak".format(it), color = SubText, fontSize = 12.sp)
                     }
                     if (!summary.dtcResult.isEmpty) {
-                        Text("${summary.dtcResult.totalCount} DTC", color = Color(0xFFCF6679), fontSize = 12.sp)
+                        Text("${summary.dtcResult.totalCount} DTC", color = Danger, fontSize = 12.sp)
                     }
                 }
                 worstSeverity?.let {
                     Text(
                         "${it.name.lowercase().replaceFirstChar { char -> char.uppercase() }} severity finding",
                         color = severityColor(it),
-                        fontSize = 11.sp,
+                        fontSize = 12.sp,
                     )
                 }
             }
@@ -275,8 +259,8 @@ private fun DriveHistoryRow(
 }
 
 private fun severityColor(severity: FindingSeverity): Color = when (severity) {
-    FindingSeverity.HIGH -> Color(0xFFCF6679)
-    FindingSeverity.MEDIUM -> Color(0xFFFF9F43)
-    FindingSeverity.LOW -> Color(0xFF4C6EF5)
-    FindingSeverity.INFO -> Color(0xFF888888)
+    FindingSeverity.HIGH -> Danger
+    FindingSeverity.MEDIUM -> Warning
+    FindingSeverity.LOW -> Caution
+    FindingSeverity.INFO -> SubText
 }

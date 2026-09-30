@@ -1,17 +1,20 @@
 package com.obdvis.android.ui
 
+import com.obdvis.android.ui.components.AppHeader
 import android.Manifest
 import android.content.pm.PackageManager
 import android.os.Build
 import androidx.activity.compose.rememberLauncherForActivityResult
 import androidx.activity.result.contract.ActivityResultContracts
+import androidx.compose.foundation.selection.selectable
+import androidx.compose.ui.semantics.Role
+import androidx.compose.ui.semantics.semantics
+import androidx.compose.ui.semantics.contentDescription
 import androidx.compose.foundation.background
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.text.KeyboardOptions
 import androidx.compose.foundation.verticalScroll
-import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.automirrored.filled.ArrowBack
 import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
@@ -59,19 +62,7 @@ fun SettingsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                 .fillMaxSize()
                 .background(Background),
         ) {
-            Surface(color = Surface, tonalElevation = 0.dp) {
-                Row(
-                    modifier = Modifier
-                        .fillMaxWidth()
-                        .padding(start = 4.dp, end = 16.dp, top = 10.dp, bottom = 10.dp),
-                    verticalAlignment = Alignment.CenterVertically,
-                ) {
-                    IconButton(onClick = onBack) {
-                        Icon(Icons.AutoMirrored.Filled.ArrowBack, contentDescription = "Back", tint = SubText)
-                    }
-                    Text("Settings", style = MaterialTheme.typography.titleMedium, color = OnSurface)
-                }
-            }
+            AppHeader("Settings", onBack = onBack)
 
             Column(
                 modifier = Modifier
@@ -80,7 +71,7 @@ fun SettingsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                     .padding(16.dp),
                 verticalArrangement = Arrangement.spacedBy(24.dp),
             ) {
-                SettingsSection(title = "Background Health Checks") {
+                SettingsSection(title = "Background health checks") {
                     Text(
                         "How often to check vehicle health while the app is in the background",
                         style = MaterialTheme.typography.bodySmall,
@@ -110,7 +101,7 @@ fun SettingsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                             focusedTextColor = OnSurface,
                             unfocusedTextColor = OnSurface,
                             focusedBorderColor = Primary,
-                            unfocusedBorderColor = Border,
+                            unfocusedBorderColor = ControlOutline,
                             cursorColor = Primary,
                         ),
                         modifier = Modifier.fillMaxWidth(),
@@ -134,6 +125,7 @@ fun SettingsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                             )
                         }
                         Switch(
+                            modifier = Modifier.padding(start = AppSpace.md).semantics { contentDescription = "Notify on findings" },
                             checked = notificationsEnabled,
                             onCheckedChange = { enabled ->
                                 if (enabled) requestNotificationEnable()
@@ -157,11 +149,13 @@ fun SettingsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
                         severityOptions.forEach { (label, severity) ->
                             Row(
                                 verticalAlignment = Alignment.CenterVertically,
-                                modifier = Modifier.fillMaxWidth(),
+                                modifier = Modifier.fillMaxWidth().heightIn(min = AppSpace.touch)
+                                    .selectable(selected = notificationMinSeverity == severity, role = Role.RadioButton,
+                                        onClick = { viewModel.updateNotificationMinSeverity(severity) }),
                             ) {
                                 RadioButton(
                                     selected = notificationMinSeverity == severity,
-                                    onClick = { viewModel.updateNotificationMinSeverity(severity) },
+                                    onClick = null,
                                     colors = RadioButtonDefaults.colors(selectedColor = Primary),
                                 )
                                 Text(
@@ -182,7 +176,7 @@ fun SettingsScreen(viewModel: MainViewModel, onBack: () -> Unit) {
 @Composable
 private fun SettingsSection(title: String, content: @Composable ColumnScope.() -> Unit) {
     Column {
-        Text(title, style = MaterialTheme.typography.titleSmall, color = Primary)
+        Text(title, style = MaterialTheme.typography.titleSmall, color = OnSurface)
         Spacer(Modifier.height(12.dp))
         content()
     }

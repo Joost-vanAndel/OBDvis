@@ -1,8 +1,8 @@
 package com.obdvis.android.ui.dtc
 
-import androidx.compose.foundation.background
+import com.obdvis.android.ui.components.SectionHeading
+import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.foundation.border
-import androidx.compose.foundation.clickable
 import androidx.compose.foundation.layout.*
 import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
@@ -14,13 +14,12 @@ import androidx.compose.material3.*
 import androidx.compose.runtime.*
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
-import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.unit.dp
 import com.obdvis.android.domain.health.DtcInfo
-import com.obdvis.android.domain.health.DtcReadResult
 import com.obdvis.android.domain.health.DtcScreenState
 import com.obdvis.android.ui.theme.*
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 fun DtcScreen(
     state: DtcScreenState,
@@ -61,15 +60,18 @@ fun DtcScreen(
             .padding(horizontal = 16.dp, vertical = 12.dp),
         verticalArrangement = Arrangement.spacedBy(12.dp),
     ) {
+        SectionHeading("Fault codes", "Stored and pending codes from the ECU")
+
         // ── Action row ──────────────────────────────────────────────────────
         val isBusy = state is DtcScreenState.Reading || state is DtcScreenState.Clearing
         val canClear = state is DtcScreenState.Loaded && !state.result.isEmpty
 
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
-            Button(
+        FlowRow(maxItemsInEachRow = if (LocalDensity.current.fontScale > 1.2f) 1 else 2,
+            horizontalArrangement = Arrangement.spacedBy(AppSpace.xs), verticalArrangement = Arrangement.spacedBy(AppSpace.xs)) {
+            Button(shape = MaterialTheme.shapes.small,
                 onClick  = onRead,
                 enabled  = !isBusy,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).heightIn(min = AppSpace.touch),
             ) {
                 if (state is DtcScreenState.Reading) {
                     CircularProgressIndicator(
@@ -81,13 +83,13 @@ fun DtcScreen(
                     Icon(Icons.Default.Refresh, contentDescription = null, modifier = Modifier.size(16.dp))
                 }
                 Spacer(Modifier.width(6.dp))
-                Text(if (state is DtcScreenState.Reading) "Reading…" else "Read DTCs")
+                Text(if (state is DtcScreenState.Reading) "Reading…" else "Read DTCs", maxLines = 1)
             }
 
-            OutlinedButton(
+            OutlinedButton(shape = MaterialTheme.shapes.small,
                 onClick  = { showClearConfirm = true },
                 enabled  = canClear && !isBusy,
-                modifier = Modifier.weight(1f),
+                modifier = Modifier.weight(1f).heightIn(min = AppSpace.touch),
                 colors   = ButtonDefaults.outlinedButtonColors(
                     contentColor = MaterialTheme.colorScheme.error,
                 ),
@@ -107,7 +109,7 @@ fun DtcScreen(
                     Spacer(Modifier.width(6.dp))
                     Text("Clearing…")
                 } else {
-                    Text("Clear DTCs")
+                    Text("Clear DTCs", maxLines = 1)
                 }
             }
         }
@@ -192,61 +194,18 @@ private fun DtcSection(
 
 @Composable
 private fun DtcCard(code: String, isStored: Boolean, onSearch: () -> Unit) {
-    val accentColor = if (isStored) Color(0xFFCF6679) else Color(0xFFF5D547)
-
-    Surface(
-        color    = Surface,
-        shape    = RoundedCornerShape(8.dp),
-        modifier = Modifier
-            .fillMaxWidth()
-            .border(0.5.dp, accentColor.copy(alpha = 0.5f), RoundedCornerShape(8.dp))
-            .clickable(onClickLabel = "Search for $code") { onSearch() },
-    ) {
-        Row(
-            modifier            = Modifier.padding(horizontal = 12.dp, vertical = 10.dp),
-            verticalAlignment   = Alignment.CenterVertically,
-            horizontalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            // Severity dot
-            Box(
-                modifier = Modifier
-                    .size(8.dp)
-                    .background(accentColor, RoundedCornerShape(4.dp))
-            )
-
-            Column(modifier = Modifier.weight(1f)) {
-                Text(code, style = MaterialTheme.typography.labelLarge, color = OnSurface)
-                Spacer(Modifier.height(2.dp))
-                Text(
-                    DtcInfo.genericExplanation(code),
-                    style = MaterialTheme.typography.bodySmall,
-                    color = OnSurface,
-                )
-                Text(
-                    DtcInfo.systemLabel(code),
-                    style = MaterialTheme.typography.labelSmall,
-                    color = SubText,
-                )
+    val accent = if (isStored) Danger else Caution
+    Surface(onClick = onSearch, color = Surface, shape = MaterialTheme.shapes.medium,
+        modifier = Modifier.fillMaxWidth()) {
+        Row(Modifier.padding(AppSpace.md), horizontalArrangement = Arrangement.spacedBy(AppSpace.sm),
+            verticalAlignment = Alignment.CenterVertically) {
+            Column(Modifier.weight(1f), verticalArrangement = Arrangement.spacedBy(AppSpace.xs)) {
+                Text(code, style = AppType.reading, color = OnSurface)
+                Text(if (isStored) "Stored" else "Pending", style = MaterialTheme.typography.labelSmall, color = accent)
+                Text(DtcInfo.genericExplanation(code), style = MaterialTheme.typography.bodyMedium, color = OnSurface)
+                Text(DtcInfo.systemLabel(code), style = MaterialTheme.typography.bodySmall, color = SubText)
             }
-
-            Icon(
-                Icons.Default.Search,
-                contentDescription = "Search for $code",
-                tint = SubText,
-                modifier = Modifier.size(18.dp),
-            )
-
-            Surface(
-                color = SurfaceVar,
-                shape = RoundedCornerShape(4.dp),
-            ) {
-                Text(
-                    if (isStored) "stored" else "pending",
-                    style    = MaterialTheme.typography.labelSmall,
-                    color    = if (isStored) accentColor else Color(0xFFF5D547),
-                    modifier = Modifier.padding(horizontal = 6.dp, vertical = 3.dp),
-                )
-            }
+            Icon(Icons.Default.Search, "Search for $code", tint = Primary, modifier = Modifier.size(24.dp))
         }
     }
 }

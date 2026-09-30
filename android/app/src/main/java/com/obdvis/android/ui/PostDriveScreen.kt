@@ -1,5 +1,7 @@
 package com.obdvis.android.ui
 
+import com.obdvis.android.ui.components.AppHeader
+import com.obdvis.android.ui.components.SectionHeading
 import androidx.activity.compose.BackHandler
 import androidx.compose.foundation.Canvas
 import androidx.compose.foundation.background
@@ -10,7 +12,6 @@ import androidx.compose.foundation.rememberScrollState
 import androidx.compose.foundation.shape.RoundedCornerShape
 import androidx.compose.foundation.verticalScroll
 import androidx.compose.material.icons.Icons
-import androidx.compose.material.icons.filled.Close
 import androidx.compose.material.icons.filled.Delete
 import androidx.compose.material.icons.filled.Download
 import androidx.compose.material.icons.filled.Search
@@ -22,14 +23,12 @@ import androidx.compose.ui.geometry.Offset
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.text.font.FontWeight
-import androidx.compose.ui.text.style.TextOverflow
 import androidx.compose.ui.unit.dp
 import androidx.compose.ui.unit.sp
 import com.obdvis.android.domain.health.AggregatedFinding
 import com.obdvis.android.domain.health.DtcInfo
 import com.obdvis.android.domain.health.FindingSeverity
 import com.obdvis.android.domain.health.OperatingState
-import com.obdvis.android.domain.health.PeakGForce
 import com.obdvis.android.domain.health.PostDriveData
 import com.obdvis.android.ui.theme.*
 import java.util.concurrent.TimeUnit
@@ -49,82 +48,67 @@ fun PostDriveScreen(
     val exportCsv = rememberCsvExportAction { csvContent }
     var showDeleteConfirmation by remember { mutableStateOf(false) }
 
-    Column(
-        modifier = modifier
-            .fillMaxSize()
-            .background(Background),
-    ) {
-        Row(
-            modifier = Modifier
-                .fillMaxWidth()
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalAlignment = Alignment.CenterVertically,
+    OBDvisTheme {
+        Column(
+            modifier = modifier
+                .fillMaxSize()
+                .background(Background),
         ) {
-            Text(
-                text = title,
-                color = OnSurface,
-                fontSize = 18.sp,
-                fontWeight = FontWeight.SemiBold,
-                modifier = Modifier.weight(1f),
-            )
-            TextButton(
-                onClick = { exportCsv("obd_drive_${data.sessionStartMs}.csv") },
-                enabled = csvContent.lineSequence().drop(1).any { it.isNotBlank() },
-                contentPadding = PaddingValues(horizontal = 8.dp),
-            ) {
-                Icon(
-                    Icons.Default.Download,
-                    contentDescription = null,
-                    modifier = Modifier.size(17.dp),
-                )
-                Spacer(Modifier.width(5.dp))
-                Text("CSV")
-            }
-            if (onDelete != null) {
-                IconButton(onClick = { showDeleteConfirmation = true }) {
-                    Icon(Icons.Default.Delete, contentDescription = "Delete drive", tint = SubText)
+            AppHeader(title, onBack = onDismiss) {
+                TextButton(
+                    onClick = { exportCsv("obd_drive_${data.sessionStartMs}.csv") },
+                    enabled = csvContent.lineSequence().drop(1).any { it.isNotBlank() },
+                    contentPadding = PaddingValues(horizontal = 8.dp),
+                ) {
+                    Icon(
+                        Icons.Default.Download,
+                        contentDescription = null,
+                        modifier = Modifier.size(17.dp),
+                    )
+                    Spacer(Modifier.width(5.dp))
+                    Text("CSV")
+                }
+                if (onDelete != null) {
+                    IconButton(onClick = { showDeleteConfirmation = true }) {
+                        Icon(Icons.Default.Delete, contentDescription = "Delete drive", tint = SubText)
+                    }
                 }
             }
-            IconButton(onClick = onDismiss) {
-                Icon(Icons.Default.Close, contentDescription = "Dismiss", tint = SubText)
+
+            Column(
+                modifier = Modifier
+                    .fillMaxSize()
+                    .verticalScroll(rememberScrollState())
+                    .padding(horizontal = 16.dp, vertical = 12.dp),
+                verticalArrangement = Arrangement.spacedBy(AppSpace.lg),
+            ) {
+                SessionOverviewCard(data)
+                PeakValuesCard(data)
+                OperatingStatesCard(data)
+                NotableFindingsCard(data)
+                DtcSummaryCard(data, onSearchDtc)
+                GForceCard(data)
             }
         }
 
-        HorizontalDivider(color = Border, thickness = 1.dp)
-
-        Column(
-            modifier = Modifier
-                .fillMaxSize()
-                .verticalScroll(rememberScrollState())
-                .padding(horizontal = 16.dp, vertical = 12.dp),
-            verticalArrangement = Arrangement.spacedBy(12.dp),
-        ) {
-            SessionOverviewCard(data)
-            OperatingStatesCard(data)
-            PeakValuesCard(data)
-            GForceCard(data)
-            DtcSummaryCard(data, onSearchDtc)
-            NotableFindingsCard(data)
+        if (showDeleteConfirmation && onDelete != null) {
+            AlertDialog(
+                onDismissRequest = { showDeleteConfirmation = false },
+                title = { Text("Delete saved drive?") },
+                text = { Text("This drive summary and its CSV data will be removed from this device.") },
+                confirmButton = {
+                    TextButton(
+                        onClick = {
+                            showDeleteConfirmation = false
+                            onDelete()
+                        }
+                    ) { Text("Delete") }
+                },
+                dismissButton = {
+                    TextButton(onClick = { showDeleteConfirmation = false }) { Text("Cancel") }
+                },
+            )
         }
-    }
-
-    if (showDeleteConfirmation && onDelete != null) {
-        AlertDialog(
-            onDismissRequest = { showDeleteConfirmation = false },
-            title = { Text("Delete saved drive?") },
-            text = { Text("This drive summary and its CSV data will be removed from this device.") },
-            confirmButton = {
-                TextButton(
-                    onClick = {
-                        showDeleteConfirmation = false
-                        onDelete()
-                    }
-                ) { Text("Delete") }
-            },
-            dismissButton = {
-                TextButton(onClick = { showDeleteConfirmation = false }) { Text("Cancel") }
-            },
-        )
     }
 }
 
@@ -139,13 +123,11 @@ private fun SummaryCard(
     Column(
         modifier = modifier
             .fillMaxWidth()
-            .background(Surface, RoundedCornerShape(10.dp))
-            .border(1.dp, Border, RoundedCornerShape(10.dp))
-            .padding(14.dp),
+            .padding(vertical = AppSpace.xs),
         verticalArrangement = Arrangement.spacedBy(10.dp),
     ) {
-        Text(title, color = SubText, fontSize = 11.sp, fontWeight = FontWeight.Medium,
-            letterSpacing = 0.8.sp)
+        SectionHeading(title)
+        HorizontalDivider(color = Border)
         content()
     }
 }
@@ -160,7 +142,7 @@ private fun SessionOverviewCard(data: PostDriveData) {
         else      -> "${minutes}m"
     }
 
-    SummaryCard("SESSION OVERVIEW") {
+    SummaryCard("Session") {
         Row(
             modifier = Modifier.fillMaxWidth(),
             horizontalArrangement = Arrangement.spacedBy(24.dp),
@@ -180,17 +162,12 @@ private fun OverviewStat(label: String, value: String, modifier: Modifier = Modi
         Text(
             value,
             color = OnSurface,
-            fontSize = 22.sp,
-            fontWeight = FontWeight.Bold,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
+            style = AppType.reading,
         )
         Text(
             label,
             color = SubText,
             fontSize = 12.sp,
-            maxLines = 1,
-            overflow = TextOverflow.Ellipsis,
         )
     }
 }
@@ -209,7 +186,7 @@ private fun OperatingStatesCard(data: PostDriveData) {
         OperatingState.UNKNOWN,
     )
 
-    SummaryCard("OPERATING STATES") {
+    SummaryCard("Operating states") {
         order.forEach { state ->
             val count = breakdown[state] ?: 0
             if (count == 0) return@forEach
@@ -223,7 +200,7 @@ private fun OperatingStatesCard(data: PostDriveData) {
                     state.label,
                     color = OnSurface,
                     fontSize = 13.sp,
-                    modifier = Modifier.width(110.dp),
+                    modifier = Modifier.weight(1.3f),
                 )
                 LinearProgressIndicator(
                     progress = { count.toFloat() / total },
@@ -231,7 +208,7 @@ private fun OperatingStatesCard(data: PostDriveData) {
                     color = Primary,
                     trackColor = Border,
                 )
-                Text("$pct%", color = SubText, fontSize = 12.sp, modifier = Modifier.width(34.dp))
+                Text("$pct%", color = SubText, fontSize = 12.sp, modifier = Modifier.widthIn(min = 40.dp))
             }
         }
     }
@@ -246,13 +223,12 @@ private fun PeakValuesCard(data: PostDriveData) {
     )
     if (peaks.isEmpty()) return
 
-    SummaryCard("PEAK VALUES") {
-        Row(
-            modifier = Modifier.fillMaxWidth(),
-            horizontalArrangement = Arrangement.spacedBy(16.dp),
-        ) {
-            peaks.forEach { (label, value) ->
-                OverviewStat(label, value, modifier = Modifier.weight(1f))
+    SummaryCard("Peak readings") {
+        peaks.forEach { (label, value) ->
+            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
+                horizontalArrangement = Arrangement.spacedBy(AppSpace.md)) {
+                Text(label, color = SubText, style = MaterialTheme.typography.bodyMedium, modifier = Modifier.weight(1f))
+                Text(value, color = OnSurface, style = MaterialTheme.typography.titleMedium.merge(AppType.numeric))
             }
         }
     }
@@ -263,13 +239,13 @@ private fun GForceCard(data: PostDriveData) {
     val pg = data.peakGForce ?: return
     if (pg.left + pg.right + pg.forward + pg.backward < 0.05f) return
 
-    SummaryCard("PEAK G-FORCE") {
+    SummaryCard("G-force peaks") {
         Box(modifier = Modifier.fillMaxWidth(), contentAlignment = Alignment.Center) {
             Box(
                 modifier = Modifier.width(220.dp).height(160.dp),
                 contentAlignment = Alignment.Center,
             ) {
-                val peakDotColor = Color(0xFFCF6679)
+                val peakDotColor = Danger
 
                 Canvas(modifier = Modifier.size(130.dp)) {
                     val s  = minOf(size.width, size.height)
@@ -297,7 +273,7 @@ private fun GForceCard(data: PostDriveData) {
                     drawLine(hairColor, Offset(cx, cy - r), Offset(cx, cy + r), 1.dp.toPx())
                     // centre point
                     drawCircle(Border.copy(alpha = 0.6f), r * 0.055f, Offset(cx, cy))
-                    drawCircle(Color.White.copy(alpha = 0.85f), r * 0.028f, Offset(cx, cy))
+                    drawCircle(OnSurface, r * 0.028f, Offset(cx, cy))
 
                     // Peak dots — each placed on its axis, clamped to the 1 g ring
                     fun drawPeakDot(lat: Float, lon: Float) {
@@ -334,7 +310,7 @@ private fun GForceCard(data: PostDriveData) {
 private fun DtcSummaryCard(data: PostDriveData, onSearchDtc: (String) -> Unit) {
     if (data.dtcResult.isEmpty) return
 
-    SummaryCard("FAULT CODES") {
+    SummaryCard("Fault codes") {
         if (data.dtcResult.stored.isNotEmpty()) {
             DtcCodeSection(
                 label = "Stored",
@@ -361,12 +337,12 @@ private fun DtcCodeSection(
     isStored: Boolean,
     onSearchDtc: (String) -> Unit,
 ) {
-    val accentColor = if (isStored) Color(0xFFCF6679) else Color(0xFFF5D547)
+    val accentColor = if (isStored) Danger else Caution
     Column(verticalArrangement = Arrangement.spacedBy(6.dp)) {
         Text(
             "$label (${codes.size})",
             color = SubText,
-            fontSize = 11.sp,
+            fontSize = 12.sp,
             fontWeight = FontWeight.Medium,
         )
         codes.forEach { code ->
@@ -393,7 +369,7 @@ private fun DtcCodeSection(
                         color = OnSurface,
                         lineHeight = 16.sp,
                     )
-                    Text(DtcInfo.systemLabel(code), fontSize = 11.sp, color = SubText)
+                    Text(DtcInfo.systemLabel(code), fontSize = 12.sp, color = SubText)
                 }
                 Icon(
                     Icons.Default.Search,
@@ -410,13 +386,13 @@ private fun DtcCodeSection(
 private fun NotableFindingsCard(data: PostDriveData) {
     val findings = data.aggregatedFindings.filter { it.finding.severity != FindingSeverity.INFO }
     if (findings.isEmpty()) {
-        SummaryCard("FINDINGS") {
+        SummaryCard("Findings") {
             Text("No notable findings this drive.", color = SubText, fontSize = 13.sp)
         }
         return
     }
 
-    SummaryCard("FINDINGS") {
+    SummaryCard("Findings") {
         findings.forEach { agg -> FindingRow(agg, sessionStartMs = data.sessionStartMs) }
     }
 }
@@ -424,10 +400,10 @@ private fun NotableFindingsCard(data: PostDriveData) {
 // ── Finding row ────────────────────────────────────────────────────────────────
 
 private val FindingSeverity.severityColor: Color get() = when (this) {
-    FindingSeverity.HIGH   -> Color(0xFFCF6679)
-    FindingSeverity.MEDIUM -> Color(0xFFFF9F43)
-    FindingSeverity.LOW    -> Color(0xFF4C6EF5)
-    FindingSeverity.INFO   -> Color(0xFF888888)
+    FindingSeverity.HIGH   -> Danger
+    FindingSeverity.MEDIUM -> Warning
+    FindingSeverity.LOW    -> Caution
+    FindingSeverity.INFO   -> SubText
 }
 
 private val FindingSeverity.severityLabel: String get() = when (this) {
@@ -437,6 +413,7 @@ private val FindingSeverity.severityLabel: String get() = when (this) {
     FindingSeverity.INFO   -> "INFO"
 }
 
+@OptIn(ExperimentalLayoutApi::class)
 @Composable
 private fun FindingRow(agg: AggregatedFinding, sessionStartMs: Long) {
     var expanded by remember { mutableStateOf(agg.finding.severity == FindingSeverity.HIGH) }
@@ -456,7 +433,7 @@ private fun FindingRow(agg: AggregatedFinding, sessionStartMs: Long) {
             Text(
                 agg.finding.severity.severityLabel,
                 color = agg.finding.severity.severityColor,
-                fontSize = 10.sp,
+                fontSize = 12.sp,
                 fontWeight = FontWeight.Bold,
                 modifier = Modifier
                     .background(agg.finding.severity.severityColor.copy(alpha = 0.15f), RoundedCornerShape(4.dp))
@@ -473,20 +450,19 @@ private fun FindingRow(agg: AggregatedFinding, sessionStartMs: Long) {
                 onClick = { expanded = !expanded },
                 contentPadding = PaddingValues(horizontal = 4.dp, vertical = 0.dp),
             ) {
-                Text(if (expanded) "Less" else "More", color = SubText, fontSize = 11.sp)
+                Text(if (expanded) "Less" else "More", color = SubText, fontSize = 12.sp)
             }
         }
-        Row(horizontalArrangement = Arrangement.spacedBy(8.dp)) {
+        FlowRow(horizontalArrangement = Arrangement.spacedBy(AppSpace.xs), verticalArrangement = Arrangement.spacedBy(AppSpace.xxs)) {
             Text(
                 "Found in ${agg.occurrences * 100 / agg.totalSnapshots.coerceAtLeast(1)}% of checks",
                 color = SubText,
-                fontSize = 11.sp,
-                modifier = Modifier.weight(1f),
+                fontSize = 12.sp,
             )
             Text(
                 "Confidence: ${agg.finding.confidence.name.lowercase().replaceFirstChar { it.uppercase() }}",
                 color = SubText,
-                fontSize = 11.sp,
+                fontSize = 12.sp,
             )
         }
         if (expanded) {
@@ -504,8 +480,8 @@ private fun FindingRow(agg: AggregatedFinding, sessionStartMs: Long) {
                             horizontalArrangement = Arrangement.spacedBy(6.dp),
                             verticalAlignment = Alignment.CenterVertically,
                         ) {
-                            Text(label, color = SubText, fontSize = 11.sp, modifier = Modifier.weight(1f))
-                            Text(value, color = OnSurface, fontSize = 11.sp, fontWeight = FontWeight.Medium)
+                            Text(label, color = SubText, fontSize = 12.sp, modifier = Modifier.weight(1f))
+                            Text(value, color = OnSurface, fontSize = 12.sp, fontWeight = FontWeight.Medium)
                         }
                     }
                 }
@@ -513,7 +489,7 @@ private fun FindingRow(agg: AggregatedFinding, sessionStartMs: Long) {
             val firstOffset = driveOffsetLabel(agg.firstSeenMs - sessionStartMs)
             val lastOffset  = driveOffsetLabel(agg.lastSeenMs  - sessionStartMs)
             val timingText = if (firstOffset == lastOffset) "At $firstOffset" else "$firstOffset – $lastOffset"
-            Text(timingText, color = SubText, fontSize = 11.sp)
+            Text(timingText, color = SubText, fontSize = 12.sp)
         }
     }
 }

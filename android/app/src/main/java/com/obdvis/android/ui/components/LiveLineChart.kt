@@ -29,6 +29,9 @@ fun LiveLineChart(
             LineChart(context).apply {
                 setBackgroundColor(Background.toArgb())
                 setDrawGridBackground(false)
+                setNoDataText("Waiting for selected sensor data…")
+                setNoDataTextColor(SubText.toArgb())
+                setExtraOffsets(8f, 12f, 12f, 8f)
                 description.isEnabled = false
                 legend.isEnabled = false
                 setTouchEnabled(true)
@@ -41,6 +44,7 @@ fun LiveLineChart(
 
                 xAxis.apply {
                     position = XAxis.XAxisPosition.BOTTOM
+                    textSize = 12f
                     textColor = SubText.toArgb()
                     gridColor = Border.toArgb()
                     axisLineColor = Border.toArgb()
@@ -56,6 +60,7 @@ fun LiveLineChart(
                 }
 
                 axisLeft.apply {
+                    textSize = 12f
                     textColor = SubText.toArgb()
                     gridColor = Border.toArgb()
                     axisLineColor = Border.toArgb()
@@ -90,7 +95,7 @@ fun LiveLineChart(
                         color = pid.color.toArgb()
                         setDrawCircles(false)
                         setDrawValues(false)
-                        lineWidth = 1.5f
+                        lineWidth = 2f
                         mode = LineDataSet.Mode.LINEAR
                         setDrawFilled(false)
                         highLightColor = pid.color.copy(alpha = 0.5f).toArgb()
@@ -98,6 +103,7 @@ fun LiveLineChart(
                 }
 
             if (dataSets.isEmpty()) {
+                chart.setNoDataText(if (enabledPids.isEmpty()) "Select sensors below to start plotting" else "Waiting for selected sensor data…")
                 chart.clear()
             } else {
                 chart.data = LineData(dataSets.map { it as ILineDataSet })
