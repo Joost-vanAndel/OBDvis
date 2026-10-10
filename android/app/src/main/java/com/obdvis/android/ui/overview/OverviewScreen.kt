@@ -13,7 +13,6 @@ import androidx.compose.runtime.remember
 import androidx.compose.ui.platform.LocalDensity
 import androidx.compose.ui.semantics.semantics
 import androidx.compose.ui.semantics.contentDescription
-import com.obdvis.android.ui.components.NavigationRow
 import com.obdvis.android.ui.components.SectionHeading
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
@@ -38,13 +37,9 @@ fun OverviewScreen(
     latestValues: Map<String, Float>,
     chartData: Map<String, List<Entry>>,
     healthState: HealthState,
-    activeFindings: Map<String, FindingRecord>,
-    dtcScreenState: DtcScreenState,
     gForce: Pair<Float, Float>,
     peakGForce: PeakGForce,
     onResetPeaks: () -> Unit,
-    onNavigateToHealth: () -> Unit,
-    onNavigateToDtcs: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
     val speed = latestValues["speed"]
@@ -56,8 +51,7 @@ fun OverviewScreen(
     val drivingState = healthState.summaryOrNull()?.operatingState
     val largeText = LocalDensity.current.fontScale > 1.3f
 
-    BoxWithConstraints(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
-        val wide = maxWidth >= 600.dp && !largeText
+    Box(modifier = modifier.fillMaxSize(), contentAlignment = Alignment.TopCenter) {
         Column(
             modifier = Modifier.widthIn(max = 920.dp).fillMaxWidth()
                 .verticalScroll(rememberScrollState()).padding(AppSpace.md),
@@ -87,19 +81,6 @@ fun OverviewScreen(
             Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(AppSpace.md)) {
                 StatCard("Coolant", coolant?.let { "%.0f °C".format(it) } ?: "—", coolantColor(coolant), Modifier.weight(1f))
                 StatCard("Battery", battery?.let { "%.1f V".format(it) } ?: "—", batteryColor(battery), Modifier.weight(1f))
-            }
-
-            Column(verticalArrangement = Arrangement.spacedBy(AppSpace.xs)) {
-                SectionHeading("Vehicle health")
-                if (wide) {
-                    Row(horizontalArrangement = Arrangement.spacedBy(AppSpace.sm)) {
-                        HealthSummaryCard(healthState, activeFindings, onNavigateToHealth, Modifier.weight(1f))
-                        DtcSummaryCard(dtcScreenState, onNavigateToDtcs, Modifier.weight(1f))
-                    }
-                } else {
-                    HealthSummaryCard(healthState, activeFindings, onNavigateToHealth)
-                    DtcSummaryCard(dtcScreenState, onNavigateToDtcs)
-                }
             }
 
             Column(verticalArrangement = Arrangement.spacedBy(AppSpace.md)) {
@@ -376,55 +357,6 @@ private fun batteryColor(v: Float?): Color = when {
     v > 15.0f  -> Danger   // overcharge: red
     v > 14.8f  -> Caution   // high: yellow
     else       -> Success   // normal: green
-}
-
-// ── Health summary card ────────────────────────────────────────────────────────
-
-@Composable
-private fun HealthSummaryCard(
-    healthState: HealthState,
-    activeFindings: Map<String, FindingRecord>,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val issues = activeFindings.values.filter {
-        it.status == FindingStatus.ACTIVE && it.finding.severity != FindingSeverity.INFO
-    }
-    val worst = issues.maxByOrNull { it.finding.severity.ordinal }?.finding?.severity
-    val detail = when {
-        healthState.summaryOrNull() == null -> "Waiting for analysis"
-        issues.isEmpty() -> "No issues found"
-        else -> "${issues.size} active issue${if (issues.size == 1) "" else "s"}"
-    }
-    val color = when (worst) {
-        FindingSeverity.HIGH -> Danger
-        FindingSeverity.MEDIUM -> Warning
-        FindingSeverity.LOW -> Caution
-        else -> if (healthState.summaryOrNull() == null) SubText else Success
-    }
-    NavigationRow("Health", detail, onClick, modifier, color)
-}
-
-@Composable
-private fun DtcSummaryCard(
-    dtcScreenState: DtcScreenState,
-    onClick: () -> Unit,
-    modifier: Modifier = Modifier,
-) {
-    val detail = when (val state = dtcScreenState) {
-        DtcScreenState.Idle -> "Not read"
-        DtcScreenState.Reading -> "Reading…"
-        DtcScreenState.Clearing -> "Clearing…"
-        is DtcScreenState.Error -> "Read error"
-        is DtcScreenState.Loaded -> if (state.result.isEmpty) "No codes found"
-            else "${state.result.stored.size} stored · ${state.result.pending.size} pending"
-    }
-    val color = when {
-        dtcScreenState is DtcScreenState.Error -> Danger
-        dtcScreenState is DtcScreenState.Loaded -> if (dtcScreenState.result.isEmpty) Success else Danger
-        else -> SubText
-    }
-    NavigationRow("Fault codes", detail, onClick, modifier, color)
 }
 
 // ── Driving state chip ─────────────────────────────────────────────────────────

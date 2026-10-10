@@ -143,13 +143,9 @@ fun DashboardScreen(viewModel: MainViewModel) {
                         latestValues       = latestValues,
                         chartData          = chartData,
                         healthState        = healthState,
-                        activeFindings     = activeFindings,
-                        dtcScreenState     = dtcScreenState,
                         gForce             = gForce,
                         peakGForce         = peakGForce,
                         onResetPeaks       = viewModel::resetPeakGForce,
-                        onNavigateToHealth = { navigateToHealth() },
-                        onNavigateToDtcs   = { navigateToDtcs() },
                         modifier           = Modifier.fillMaxWidth().weight(1f),
                     )
                 } else if (showDtcTab) {
@@ -240,13 +236,9 @@ fun DashboardScreen(viewModel: MainViewModel) {
                             latestValues       = latestValues,
                             chartData          = chartData,
                             healthState        = healthState,
-                            activeFindings     = activeFindings,
-                            dtcScreenState     = dtcScreenState,
                             gForce             = gForce,
                             peakGForce         = peakGForce,
                             onResetPeaks       = viewModel::resetPeakGForce,
-                            onNavigateToHealth = { navigateToHealth() },
-                            onNavigateToDtcs   = { navigateToDtcs() },
                             modifier           = Modifier.weight(1f).fillMaxHeight(),
                         )
                     } else if (showDtcTab) {

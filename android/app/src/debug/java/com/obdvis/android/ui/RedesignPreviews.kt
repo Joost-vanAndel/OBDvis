@@ -45,8 +45,7 @@ fun OverviewRedesignPreview() {
             SessionHeader("Demo Mode", false, {}, {}, {})
             DashboardTabs(ActiveTab.OVERVIEW, 1, 0, {})
             OverviewScreen(previewValues, emptyMap(), previewHealth,
-                mapOf(previewFinding.id to previewRecord), DtcScreenState.Idle,
-                0.05f to 0.02f, PeakGForce(), {}, {}, {}, Modifier.weight(1f))
+                0.05f to 0.02f, PeakGForce(), {}, Modifier.weight(1f))
         }
     }
 }
@@ -55,8 +54,8 @@ fun OverviewRedesignPreview() {
 @Composable
 fun EmptyOverviewRedesignPreview() {
     OBDvisTheme {
-        OverviewScreen(emptyMap(), emptyMap(), HealthState.Idle, emptyMap(), DtcScreenState.Idle,
-            0f to 0f, PeakGForce(), {}, {}, {})
+        OverviewScreen(emptyMap(), emptyMap(), HealthState.Idle,
+            0f to 0f, PeakGForce(), {})
     }
 }
 
