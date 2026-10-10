@@ -14,6 +14,10 @@ import androidx.compose.material.icons.filled.FiberManualRecord
 import androidx.compose.material.icons.filled.Info
 import androidx.compose.material.icons.filled.Settings
 import androidx.compose.material.icons.filled.StopCircle
+import androidx.compose.material.icons.outlined.Speed
+import androidx.compose.material.icons.outlined.Tune
+import androidx.compose.material.icons.outlined.MonitorHeart
+import androidx.compose.material.icons.outlined.CarRepair
 import androidx.compose.material3.*
 import androidx.compose.runtime.Composable
 import androidx.compose.ui.Alignment
@@ -118,30 +122,43 @@ fun DashboardTabs(selected: ActiveTab, findingCount: Int, dtcCount: Int, onSelec
     val largeText = LocalDensity.current.fontScale > 1.2f
     Row(
         modifier = Modifier.fillMaxWidth().then(if (largeText) Modifier.horizontalScroll(rememberScrollState()) else Modifier)
-            .selectableGroup().padding(horizontal = AppSpace.md, vertical = AppSpace.xs),
+            .selectableGroup().padding(horizontal = AppSpace.sm, vertical = AppSpace.xs),
         horizontalArrangement = Arrangement.spacedBy(AppSpace.xs),
         verticalAlignment = Alignment.CenterVertically,
     ) {
         listOf(ActiveTab.OVERVIEW to "Overview", ActiveTab.LIVE to "Live",
             ActiveTab.HEALTH to "Health", ActiveTab.DTC to "DTCs").forEach { (tab, label) ->
             val count = when (tab) { ActiveTab.HEALTH -> findingCount; ActiveTab.DTC -> dtcCount; else -> 0 }
+            val icon = when (tab) {
+                ActiveTab.OVERVIEW -> Icons.Outlined.Speed
+                ActiveTab.LIVE -> Icons.Outlined.Tune
+                ActiveTab.HEALTH -> Icons.Outlined.MonitorHeart
+                ActiveTab.DTC -> Icons.Outlined.CarRepair
+            }
+            val tint = if (selected == tab) PrimaryVar else SubText
             val width = if (largeText) Modifier.widthIn(min = 112.dp) else Modifier.weight(1f)
             Surface(
-                color = if (selected == tab) PrimaryContainer else Background,
+                color = if (selected == tab) SurfaceVar else Background,
                 shape = MaterialTheme.shapes.small,
                 modifier = width.selectable(selected == tab, role = Role.Tab, onClick = { onSelect(tab) })
                     .semantics { contentDescription = if (count > 0) "$label, $count" else label },
             ) {
-                Box(Modifier.heightIn(min = AppSpace.touch).padding(horizontal = AppSpace.xxs),
-                    contentAlignment = Alignment.Center) {
-                    Text(label, style = MaterialTheme.typography.labelSmall,
-                        color = if (selected == tab) PrimaryVar else SubText, maxLines = 1)
-                    if (count > 0) {
-                        Badge(containerColor = DangerContainer, contentColor = Danger,
-                            modifier = Modifier.align(Alignment.TopEnd)) {
-                            Text(if (count > 99) "99+" else "$count", style = MaterialTheme.typography.labelSmall)
+                Column(
+                    Modifier.heightIn(min = 64.dp).padding(horizontal = AppSpace.xxs, vertical = AppSpace.xs),
+                    horizontalAlignment = Alignment.CenterHorizontally,
+                    verticalArrangement = Arrangement.spacedBy(AppSpace.xxs, Alignment.CenterVertically),
+                ) {
+                    BadgedBox(badge = {
+                        if (count > 0) {
+                            Badge(containerColor = DangerContainer, contentColor = Danger) {
+                                Text(if (count > 99) "99+" else "$count", style = MaterialTheme.typography.labelSmall)
+                            }
                         }
+                    }) {
+                        Icon(icon, contentDescription = null, tint = tint, modifier = Modifier.size(24.dp))
                     }
+                    Text(label, style = MaterialTheme.typography.labelSmall,
+                        color = tint, maxLines = 1)
                 }
             }
         }

@@ -17,7 +17,7 @@ import com.obdvis.android.ui.theme.OBDvisTheme
 
 // Design fixtures only. Values reproduce the existing demo screenshots, not a live vehicle.
 private val previewValues = mapOf("speed" to 38f, "rpm" to 1937f, "coolant" to 92f,
-    "obd_voltage" to 12.2f, "throttle" to 27f)
+    "obd_voltage" to 12.2f, "oil_temp" to 98f, "throttle" to 27f)
 private val previewFinding = DiagnosticFinding(
     "charging_voltage_low", "Possible charging issue",
     "Low while the engine is running — may indicate a charging system issue.",
@@ -43,9 +43,9 @@ fun OverviewRedesignPreview() {
     OBDvisTheme {
         Column {
             SessionHeader("Demo Mode", false, {}, {}, {})
-            DashboardTabs(ActiveTab.OVERVIEW, 1, 0, {})
             OverviewScreen(previewValues, emptyMap(), previewHealth,
                 0.05f to 0.02f, PeakGForce(), {}, Modifier.weight(1f))
+            DashboardTabs(ActiveTab.OVERVIEW, 1, 0, {})
         }
     }
 }

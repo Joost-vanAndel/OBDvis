@@ -5,7 +5,7 @@ Approved direction: dark instrument panel, 2026-09-25. One shared system for the
 
 ## Genre and structure
 
-Modern-minimal adapted to the established dark Android UI. Dashboard: instrument workbench. Drive summary: report. Setup, history, settings, and legal screens: grouped lists / reading layouts. Four existing dashboard chip destinations remain. App content carries the design; no decorative enrichment.
+Modern-minimal adapted to the established dark Android UI. Dashboard: instrument workbench. Drive summary: report. Setup, history, settings, and legal screens: grouped lists / reading layouts. Four dashboard destinations use a bottom bar with icons above labels and a muted selected tile. Health and DTC counts appear as icon badges. App content carries the design; no decorative enrichment.
 
 ## Theme
 
@@ -40,6 +40,14 @@ Preview 320/375/414/768 dp, landscape, and enlarged text. Use native dp/sp rathe
 Version 0.1.13 (versionCode 14), completed 2026-09-30. The Live tab uses a sensor panel capped at 260 dp in portrait and 240 dp wide in landscape to accommodate larger controls. Overview uses a primary numeric speed reading and a compact RPM arc. Diagnostics and reports share semantic colors and typography.
 
 See `docs/ui-redesign/README.md` for screenshots, verification results, native adaptations, and remaining device checks. The 78 snapshot renders are test fixtures, not live vehicle recordings.
+
+## Reference-inspired Overview · 0.1.15
+
+The 2026-10-10 update adopts compact rounded instrument cards, monospaced instrument labels and measurements, horizontal scale bars, and a larger G-force panel from the supplied reference. Overview pairs RPM with road speed and coolant with oil temperature. Battery voltage and operating state share the top panel. Existing palette tokens and four dashboard destinations remain in use.
+
+Measurements come from the existing session state. No vehicle identity, CAN load, polling rate, sensor fusion, vehicle-specific redline, or safe oil-temperature claims are inferred. Missing sensors show an em dash and “Awaiting data”. Scale bars are visual ranges, not diagnostic judgments. G-force directional peaks remain visible as wrapping text below the plot; enlarged text stacks the paired instruments. Motion and recent-speed history remain available below the main instruments.
+
+The existing debug previews cover narrow, wide, landscape, enlarged-text, and missing-reading states. Earlier screenshot results above describe version 0.1.13, not this update. Validation for 0.1.15: debug APK assembled, all 164 unit tests passed, Android lint completed, and `git diff --check` passed. Device/emulator visual checks have not been run for this update.
 
 ## Exports
 

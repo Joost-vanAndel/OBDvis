@@ -54,6 +54,9 @@ object AppType {
     val body = FontFamily.SansSerif
     val numeric = TextStyle(fontFamily = body, fontWeight = FontWeight.SemiBold,
         fontFeatureSettings = "tnum", letterSpacing = (-0.5).sp)
+    val instrumentLabel = TextStyle(fontFamily = FontFamily.Monospace, fontWeight = FontWeight.Medium,
+        fontSize = 12.sp, lineHeight = 18.sp, letterSpacing = 0.5.sp)
+    val instrumentReading = numeric.copy(fontFamily = FontFamily.Monospace, fontSize = 32.sp, lineHeight = 40.sp)
     val speed = numeric.copy(fontSize = 64.sp, lineHeight = 72.sp)
     val reading = numeric.copy(fontSize = 28.sp, lineHeight = 36.sp)
 }

@@ -17,19 +17,15 @@ import com.obdvis.android.ui.components.SectionHeading
 import androidx.compose.ui.Alignment
 import androidx.compose.ui.Modifier
 import androidx.compose.ui.geometry.Offset
-import androidx.compose.ui.geometry.Size
 import androidx.compose.ui.graphics.Color
 import androidx.compose.ui.graphics.StrokeCap
 import androidx.compose.ui.graphics.drawscope.Stroke
 import androidx.compose.ui.unit.dp
-import androidx.compose.ui.unit.sp
 import androidx.compose.foundation.ExperimentalFoundationApi
 import androidx.compose.foundation.combinedClickable
 import com.github.mikephil.charting.data.Entry
 import com.obdvis.android.domain.health.*
 import com.obdvis.android.ui.theme.*
-import kotlin.math.cos
-import kotlin.math.sin
 import kotlin.math.sqrt
 
 @Composable
@@ -45,6 +41,7 @@ fun OverviewScreen(
     val speed = latestValues["speed"]
     val rpm = latestValues["rpm"]
     val coolant = latestValues["coolant"]
+    val oil = latestValues["oil_temp"]
     val battery = latestValues["obd_voltage"] ?: latestValues["ecu_voltage"]
     val throttle = latestValues["throttle"]
     val speedEntries = chartData["speed"] ?: emptyList()
@@ -55,192 +52,136 @@ fun OverviewScreen(
         Column(
             modifier = Modifier.widthIn(max = 920.dp).fillMaxWidth()
                 .verticalScroll(rememberScrollState()).padding(AppSpace.md),
-            verticalArrangement = Arrangement.spacedBy(AppSpace.lg),
+            verticalArrangement = Arrangement.spacedBy(AppSpace.sm),
         ) {
-            Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(AppSpace.xs)) {
-                Text("Overview", style = MaterialTheme.typography.titleMedium, modifier = Modifier.weight(1f))
-                if (drivingState != null) DrivingStateChip(drivingState)
+            InstrumentPanel {
+                Text("DRIVE TELEMETRY", style = AppType.instrumentLabel, color = Primary)
+                InstrumentPair(largeText,
+                    first = { itemModifier ->
+                        Column(itemModifier, verticalArrangement = Arrangement.spacedBy(AppSpace.xs)) {
+                            Text("Overview", style = MaterialTheme.typography.titleMedium)
+                            if (drivingState != null) DrivingStateChip(drivingState)
+                            else Text("Waiting for health data", style = MaterialTheme.typography.bodySmall, color = SubText)
+                        }
+                    },
+                    second = { itemModifier ->
+                        Column(itemModifier, verticalArrangement = Arrangement.spacedBy(AppSpace.xxs)) {
+                            Text("BATTERY", style = AppType.instrumentLabel, color = SubText)
+                            Text(battery?.let { "%.1f V".format(it) } ?: "—",
+                                style = AppType.reading, color = batteryColor(battery))
+                            Text(if (battery == null) "Awaiting data" else "System voltage",
+                                style = MaterialTheme.typography.labelSmall, color = SubText)
+                        }
+                    },
+                )
             }
 
-            if (largeText) {
-                SpeedReading(speed)
-                ArcGauge(rpm, 0f, 8000f, "rpm", "Engine speed", EngineSignal,
-                    redlineFrom = 6000f, modifier = Modifier.fillMaxWidth().height(240.dp))
-            } else {
-                Row(Modifier.fillMaxWidth(), verticalAlignment = Alignment.CenterVertically,
-                    horizontalArrangement = Arrangement.spacedBy(AppSpace.md)) {
-                    SpeedReading(speed, Modifier.weight(1.2f))
-                    ArcGauge(rpm, 0f, 8000f, "rpm", "Engine speed", EngineSignal,
-                        redlineFrom = 6000f,
-                        modifier = Modifier.weight(1f).height(176.dp))
-                }
-            }
+            InstrumentPair(largeText,
+                first = { InstrumentCard("ENGINE SPEED", rpm, "rpm", 0f, 8000f,
+                    EngineSignal, "0–8,000 rpm scale", it) },
+                second = { InstrumentCard("ROAD SPEED", speed, "km/h", 0f, 240f,
+                    Primary, "OBD vehicle speed", it) },
+            )
+            InstrumentPair(largeText,
+                first = { InstrumentCard("COOLANT", coolant, "°C", -40f, 150f,
+                    coolantColor(coolant), "Engine coolant", it) },
+                second = { InstrumentCard("ENGINE OIL", oil, "°C", -40f, 150f,
+                    PrimaryVar, "Oil temperature", it) },
+            )
 
-            HorizontalDivider(color = Border)
-            Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(AppSpace.md)) {
-                StatCard("Coolant", coolant?.let { "%.0f °C".format(it) } ?: "—", coolantColor(coolant), Modifier.weight(1f))
-                StatCard("Battery", battery?.let { "%.1f V".format(it) } ?: "—", batteryColor(battery), Modifier.weight(1f))
-            }
-
-            Column(verticalArrangement = Arrangement.spacedBy(AppSpace.md)) {
-                SectionHeading("Motion & response")
-                if (throttle != null) ThrottleBar(throttle)
-                if (speedEntries.size >= 3) {
-                    Text("Recent speed", style = MaterialTheme.typography.labelSmall, color = SubText)
-                    SpeedSparkline(speedEntries.takeLast(60), Modifier.fillMaxWidth().height(48.dp))
-                }
+            InstrumentPanel {
+                SectionHeading("G-force dynamics", "Chassis accelerometer · 1 g outer ring")
                 GForceIndicator(
                     lateralG = gForce.first, longitudinalG = gForce.second,
-                    peakGForce = peakGForce, onResetPeaks = onResetPeaks,
-                    modifier = Modifier.width(260.dp).height(168.dp).align(Alignment.CenterHorizontally),
+                    onResetPeaks = onResetPeaks,
+                    modifier = Modifier.widthIn(max = 320.dp).fillMaxWidth().height(220.dp)
+                        .align(Alignment.CenterHorizontally),
                 )
-                TextButton(onClick = onResetPeaks, modifier = Modifier.align(Alignment.CenterHorizontally)) {
+                MotionReading("LATERAL", gForce.first)
+                MotionReading("LONGITUDINAL", gForce.second)
+                Text("Directional peaks", style = MaterialTheme.typography.labelSmall, color = SubText)
+                Text("Left %.2f g · Right %.2f g\nForward %.2f g · Braking %.2f g".format(
+                    peakGForce.left, peakGForce.right, peakGForce.forward, peakGForce.backward),
+                    style = MaterialTheme.typography.bodySmall, color = SubText)
+                TextButton(onClick = onResetPeaks, modifier = Modifier.align(Alignment.End)) {
                     Text("Reset G-force peaks")
                 }
             }
-        }
-    }
-}
 
-@Composable
-private fun SpeedReading(speed: Float?, modifier: Modifier = Modifier) {
-    Column(modifier, verticalArrangement = Arrangement.spacedBy(AppSpace.xxs)) {
-        Text("Speed", style = MaterialTheme.typography.labelLarge, color = SubText)
-        Text(speed?.let { "%.0f".format(it) } ?: "—", style = AppType.speed, color = OnSurface)
-        Text("km/h", style = MaterialTheme.typography.bodyMedium, color = SpeedSignal)
-    }
-}
-
-// ── Gauge ──────────────────────────────────────────────────────────────────────
-
-@Composable
-private fun ArcGauge(
-    value: Float?,
-    min: Float,
-    max: Float,
-    unit: String,
-    label: String,
-    arcColor: Color,
-    redlineFrom: Float = Float.MAX_VALUE,
-    modifier: Modifier = Modifier,
-) {
-    // Arc geometry: 240° sweep centred at 12 o'clock (start=150°, end=30°)
-    val startAngle  = 150f
-    val totalSweep  = 240f
-    val redColor    = Danger
-    val redZoneBg   = DangerContainer
-
-    // Box lets us layer the arc canvas and Compose Text overlays
-    Box(modifier = modifier.semantics(mergeDescendants = true) {}, contentAlignment = Alignment.Center) {
-
-        Canvas(modifier = Modifier.fillMaxSize()) {
-            val w  = size.width
-            val h  = size.height
-            val s  = minOf(w, h)
-            val cx = w / 2f
-            val cy = h * 0.46f
-            val r  = s * 0.38f
-            val sw = r * 0.15f
-
-            val fraction    = (((value ?: min) - min) / (max - min)).coerceIn(0f, 1f)
-            val redFraction = ((redlineFrom - min) / (max - min)).coerceIn(0f, 1f)
-
-            // ── Background track ────────────────────────────────────────────
-            drawArc(
-                color      = Border,
-                startAngle = startAngle,
-                sweepAngle = totalSweep,
-                useCenter  = false,
-                style      = Stroke(width = sw, cap = StrokeCap.Round),
-                topLeft    = Offset(cx - r, cy - r),
-                size       = Size(r * 2, r * 2),
-            )
-
-            // ── Red zone background ─────────────────────────────────────────
-            if (redlineFrom < max) {
-                drawArc(
-                    color      = redZoneBg,
-                    startAngle = startAngle + totalSweep * redFraction,
-                    sweepAngle = totalSweep * (1f - redFraction),
-                    useCenter  = false,
-                    style      = Stroke(width = sw, cap = StrokeCap.Butt),
-                    topLeft    = Offset(cx - r, cy - r),
-                    size       = Size(r * 2, r * 2),
-                )
-            }
-
-            // ── Value arc ───────────────────────────────────────────────────
-            if (fraction > 0.005f) {
-                val inRedline = redlineFrom < max && (value ?: min) > redlineFrom
-                if (inRedline) {
-                    drawArc(
-                        color      = arcColor,
-                        startAngle = startAngle,
-                        sweepAngle = totalSweep * redFraction,
-                        useCenter  = false,
-                        style      = Stroke(width = sw, cap = StrokeCap.Round),
-                        topLeft    = Offset(cx - r, cy - r),
-                        size       = Size(r * 2, r * 2),
-                    )
-                    drawArc(
-                        color      = redColor,
-                        startAngle = startAngle + totalSweep * redFraction,
-                        sweepAngle = totalSweep * (fraction - redFraction),
-                        useCenter  = false,
-                        style      = Stroke(width = sw, cap = StrokeCap.Round),
-                        topLeft    = Offset(cx - r, cy - r),
-                        size       = Size(r * 2, r * 2),
-                    )
-                } else {
-                    drawArc(
-                        color      = arcColor,
-                        startAngle = startAngle,
-                        sweepAngle = totalSweep * fraction,
-                        useCenter  = false,
-                        style      = Stroke(width = sw, cap = StrokeCap.Round),
-                        topLeft    = Offset(cx - r, cy - r),
-                        size       = Size(r * 2, r * 2),
-                    )
+            if (throttle != null || speedEntries.size >= 3) {
+                InstrumentPanel {
+                    SectionHeading("Motion & response")
+                    if (throttle != null) ThrottleBar(throttle)
+                    if (speedEntries.size >= 3) {
+                        Text("Recent speed", style = MaterialTheme.typography.labelSmall, color = SubText)
+                        SpeedSparkline(speedEntries.takeLast(60), Modifier.fillMaxWidth().height(48.dp))
+                    }
                 }
-
-                // Needle tip dot
-                val needleRad = Math.toRadians((startAngle + totalSweep * fraction).toDouble()).toFloat()
-                drawCircle(
-                    color  = if (inRedline) redColor else arcColor,
-                    radius = sw * 0.55f,
-                    center = Offset(cx + r * cos(needleRad), cy + r * sin(needleRad)),
-                )
             }
         }
+    }
+}
 
-        // ── Text overlay ─────────────────────────────────────────────────────
-        // Arc centre sits at ~46% from top; Box.Center is at 50%, so offset up 4%
-        // of the box height. A small fixed offset works well across sizes.
-        Column(
-            horizontalAlignment = Alignment.CenterHorizontally,
-            modifier = Modifier.offset(y = (-4).dp),
-        ) {
-            Text(
-                text       = value?.let { "%.0f".format(it) } ?: "—",
-                style = AppType.reading,
-                color      = OnSurface,
-            )
-            Text(
-                text  = unit,
-                fontSize = 12.sp,
-                color = SubText,
-            )
+@Composable
+private fun InstrumentPanel(modifier: Modifier = Modifier, content: @Composable ColumnScope.() -> Unit) {
+    Surface(color = Surface, shape = MaterialTheme.shapes.medium, modifier = modifier.fillMaxWidth()) {
+        Column(Modifier.padding(AppSpace.sm), verticalArrangement = Arrangement.spacedBy(AppSpace.sm),
+            content = content)
+    }
+}
+
+@Composable
+private fun InstrumentPair(
+    stacked: Boolean,
+    first: @Composable (Modifier) -> Unit,
+    second: @Composable (Modifier) -> Unit,
+) {
+    if (stacked) {
+        Column(verticalArrangement = Arrangement.spacedBy(AppSpace.sm)) {
+            first(Modifier.fillMaxWidth())
+            second(Modifier.fillMaxWidth())
         }
+    } else {
+        Row(Modifier.fillMaxWidth(), horizontalArrangement = Arrangement.spacedBy(AppSpace.xs)) {
+            first(Modifier.weight(1f))
+            second(Modifier.weight(1f))
+        }
+    }
+}
 
-        Text(
-            text     = label,
-            fontSize = 12.sp,
-            color    = DimText,
-            modifier = Modifier
-                .align(Alignment.BottomCenter)
-                .padding(bottom = 4.dp),
-        )
+@Composable
+private fun InstrumentCard(
+    label: String, value: Float?, unit: String, min: Float, max: Float,
+    accent: Color, detail: String, modifier: Modifier = Modifier,
+) {
+    InstrumentPanel(modifier.semantics(mergeDescendants = true) {}) {
+        Text(label, style = AppType.instrumentLabel, color = SubText)
+        Text(value?.let { "%.0f".format(it) } ?: "—", style = AppType.instrumentReading, color = OnSurface)
+        Text(unit, style = MaterialTheme.typography.labelSmall, color = accent)
+        // Scale is visual context, not a vehicle-specific safe range or redline.
+        Canvas(Modifier.fillMaxWidth().height(5.dp)) {
+            drawLine(Border, Offset(0f, size.height / 2), Offset(size.width, size.height / 2),
+                size.height, StrokeCap.Round)
+            if (value != null) {
+                val fraction = ((value - min) / (max - min)).coerceIn(0f, 1f)
+                if (fraction > 0f) drawLine(accent, Offset(0f, size.height / 2),
+                    Offset(size.width * fraction, size.height / 2), size.height, StrokeCap.Round)
+            }
+        }
+        Text(if (value == null) "Awaiting data" else detail,
+            style = MaterialTheme.typography.labelSmall, color = SubText)
+    }
+}
+
+@OptIn(ExperimentalLayoutApi::class)
+@Composable
+private fun MotionReading(label: String, value: Float) {
+    // FlowRow also lets the measurement wrap at large accessibility font sizes.
+    FlowRow(Modifier.fillMaxWidth().background(Background, MaterialTheme.shapes.small).padding(AppSpace.xs),
+        horizontalArrangement = Arrangement.SpaceBetween,
+        verticalArrangement = Arrangement.spacedBy(AppSpace.xxs)) {
+        Text(label, style = AppType.instrumentLabel, color = SubText, modifier = Modifier.padding(end = AppSpace.xs))
+        Text("%+.2f g".format(value), style = AppType.numeric, color = Primary)
     }
 }
 
@@ -308,40 +249,6 @@ private fun SpeedSparkline(entries: List<Entry>, modifier: Modifier = Modifier) 
     }
 }
 
-// ── Stat cards ─────────────────────────────────────────────────────────────────
-
-@Composable
-private fun StatCard(
-    label: String,
-    value: String,
-    dotColor: Color,
-    modifier: Modifier = Modifier,
-) {
-    Surface(
-        color    = Background,
-        shape    = MaterialTheme.shapes.medium,
-        modifier = modifier,
-    ) {
-        Column(
-            modifier = Modifier.padding(vertical = AppSpace.xxs),
-            verticalArrangement = Arrangement.spacedBy(4.dp),
-        ) {
-            Text(label, style = MaterialTheme.typography.labelSmall, color = DimText)
-            Row(
-                verticalAlignment    = Alignment.CenterVertically,
-                horizontalArrangement = Arrangement.spacedBy(6.dp),
-            ) {
-                Box(
-                    modifier = Modifier
-                        .size(8.dp)
-                        .background(dotColor, RoundedCornerShape(4.dp))
-                )
-                Text(value, style = AppType.reading, color = OnSurface)
-            }
-        }
-    }
-}
-
 private fun coolantColor(temp: Float?): Color = when {
     temp == null -> SubText
     temp < 60f   -> EngineSignal  // cold: blue
@@ -390,7 +297,6 @@ private const val TRAIL_LENGTH = 30
 private fun GForceIndicator(
     lateralG: Float,
     longitudinalG: Float,
-    peakGForce: PeakGForce,
     onResetPeaks: () -> Unit,
     modifier: Modifier = Modifier,
 ) {
@@ -407,8 +313,6 @@ private fun GForceIndicator(
         trail.addLast(lateralG to longitudinalG)
     }
 
-    val peakColor = SubText
-    val peakFontSize = 12.sp
 
     Box(
         modifier = modifier.semantics {
@@ -416,7 +320,7 @@ private fun GForceIndicator(
         }.combinedClickable(onClick = {}, onLongClickLabel = "Reset G-force peaks", onLongClick = onResetPeaks),
         contentAlignment = Alignment.Center,
     ) {
-        Canvas(modifier = Modifier.size(128.dp)) {
+        Canvas(modifier = Modifier.size(176.dp)) {
             val s  = minOf(size.width, size.height)
             val cx = size.width  / 2f
             val cy = size.height / 2f
@@ -465,35 +369,10 @@ private fun GForceIndicator(
             val bx = cx + (lateralG / mag) * clamp * r
             val by = cy - (longitudinalG / mag) * clamp * r  // +y = forward (up on screen)
 
+            drawLine(Primary, Offset(cx, cy), Offset(bx, by), 1.5.dp.toPx())
             drawCircle(ballColor.copy(alpha = 0.25f), r * 0.16f, Offset(bx, by))
             drawCircle(ballColor, r * 0.10f, Offset(bx, by))
         }
 
-        // Peak labels at cardinal positions of the outer box
-        Text(
-            text     = "↑ %.2fg".format(peakGForce.forward),
-            fontSize = peakFontSize,
-            color    = peakColor,
-            modifier = Modifier.align(Alignment.TopCenter),
-        )
-        Text(
-            text     = "↓ %.2fg".format(peakGForce.backward),
-            fontSize = peakFontSize,
-            color    = peakColor,
-            modifier = Modifier.align(Alignment.BottomCenter),
-        )
-        Text(
-            text     = "← %.2fg".format(peakGForce.left),
-            fontSize = peakFontSize,
-            color    = peakColor,
-            modifier = Modifier.align(Alignment.CenterStart),
-        )
-        Text(
-            text     = "→ %.2fg".format(peakGForce.right),
-            fontSize = peakFontSize,
-            color    = peakColor,
-            modifier = Modifier.align(Alignment.CenterEnd),
-        )
     }
 }
-

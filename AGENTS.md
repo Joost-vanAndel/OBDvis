@@ -59,7 +59,7 @@ SharedAutoState            — StateFlow bridge between MainViewModel and the An
 
 Screens (all Compose): `PermissionScreen` → `DevicePickerScreen` → `DashboardScreen` → `PostDriveScreen` → `SettingsScreen`
 
-`DashboardScreen` has four active tabs (chip navigation, not TabRow; BackHandler returns to Overview):
+`DashboardScreen` has four active tabs (bottom navigation with icons and labels; BackHandler returns to Overview):
 1. **Overview** (default) — arc gauges, operating state, G-force indicator, health/DTC quick-nav
 2. **Live** — `LineChart` with sidebar and normalize mode
 3. **Health** — rule-based diagnostics + monitor readiness status; includes a **Fuel Trim Deep Dive** sub-panel (`FuelTrimDivePanel`) accessible from the health screen, showing a 60 s rolling fuel trim chart, per-bank value grid, and fuel-trim-specific findings

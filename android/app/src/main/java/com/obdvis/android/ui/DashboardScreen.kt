@@ -110,28 +110,6 @@ fun DashboardScreen(viewModel: MainViewModel) {
                     onAbout = { showAbout = true }, onSettings = { showSettings = true },
                     onEndDrive = viewModel::disconnect,
                 )
-                DashboardTabs(
-                    selected = when {
-                        showOverviewTab -> ActiveTab.OVERVIEW
-                        showHealthTab -> ActiveTab.HEALTH
-                        showDtcTab -> ActiveTab.DTC
-                        else -> ActiveTab.LIVE
-                    },
-                    findingCount = activeFindingCount,
-                    dtcCount = dtcCount,
-                    onSelect = { tab ->
-                        when (tab) {
-                            ActiveTab.HEALTH -> navigateToHealth()
-                            ActiveTab.DTC -> navigateToDtcs()
-                            else -> {
-                                showOverviewTab = tab == ActiveTab.OVERVIEW
-                                showHealthTab = false
-                                showDtcTab = false
-                                viewModel.setActiveTab(tab)
-                            }
-                        }
-                    },
-                )
                 HorizontalDivider(color = Border)
             }
 
@@ -283,6 +261,29 @@ fun DashboardScreen(viewModel: MainViewModel) {
                     }
                 }
             }
+            HorizontalDivider(color = Border)
+            DashboardTabs(
+                selected = when {
+                    showOverviewTab -> ActiveTab.OVERVIEW
+                    showHealthTab -> ActiveTab.HEALTH
+                    showDtcTab -> ActiveTab.DTC
+                    else -> ActiveTab.LIVE
+                },
+                findingCount = activeFindingCount,
+                dtcCount = dtcCount,
+                onSelect = { tab ->
+                    when (tab) {
+                        ActiveTab.HEALTH -> navigateToHealth()
+                        ActiveTab.DTC -> navigateToDtcs()
+                        else -> {
+                            showOverviewTab = tab == ActiveTab.OVERVIEW
+                            showHealthTab = false
+                            showDtcTab = false
+                            viewModel.setActiveTab(tab)
+                        }
+                    }
+                },
+            )
         }
     }
 }
